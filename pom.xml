@@ -46,7 +46,7 @@
 
   <issueManagement>
     <system>jira</system>
-    <url>http://fusesource.com/issues/browse/MVNRUN</url>
+    <url>http://fusesource.com/issues/browse/MOP</url>
   </issueManagement>
 
   <scm>

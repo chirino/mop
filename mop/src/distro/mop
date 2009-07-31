@@ -28,14 +28,14 @@ case "`uname`" in
            ;;
 esac
 
-if [ -z "$MVNRUN_HOME" ] ; then
-  # try to find MVNRUN
+if [ -z "$MOP_HOME" ] ; then
+  # try to find MOP
   if [ -d /opt/mop ] ; then
-    MVNRUN_HOME=/opt/mop
+    MOP_HOME=/opt/mop
   fi
 
   if [ -d "${HOME}/opt/mop" ] ; then
-    MVNRUN_HOME="${HOME}/opt/mop"
+    MOP_HOME="${HOME}/opt/mop"
   fi
 
   ## resolve links - $0 may be a link to mop's home
@@ -57,18 +57,18 @@ if [ -z "$MVNRUN_HOME" ] ; then
     fi
   done
 
-  MVNRUN_HOME=`dirname "$PRG"`
+  MOP_HOME=`dirname "$PRG"`
 
   cd "$saveddir"
 
   # make it fully qualified
-  MVNRUN_HOME=`cd "$MVNRUN_HOME" && pwd`
+  MOP_HOME=`cd "$MOP_HOME" && pwd`
 fi
 
 # For Cygwin, ensure paths are in UNIX format before anything is touched
 if $cygwin ; then
-  [ -n "$MVNRUN_HOME" ] &&
-    MVNRUN_HOME=`cygpath --unix "$MVNRUN_HOME"`
+  [ -n "$MOP_HOME" ] &&
+    MOP_HOME=`cygpath --unix "$MOP_HOME"`
   [ -n "$JAVA_HOME" ] &&
     JAVA_HOME=`cygpath --unix "$JAVA_HOME"`
   [ -n "$CLASSPATH" ] &&
@@ -97,22 +97,22 @@ if [ ! -x "$JAVACMD" ] ; then
   exit 1
 fi
 
-if [ -z "$MVNRUN_BASE" ] ; then
-  MVNRUN_BASE="$MVNRUN_HOME"
+if [ -z "$MOP_BASE" ] ; then
+  MOP_BASE="$MOP_HOME"
 fi
 
 # For Cygwin, switch paths to Windows format before running java
 if $cygwin; then
-  MVNRUN_HOME=`cygpath --windows "$MVNRUN_HOME"`
-  MVNRUN_BASE=`cygpath --windows "$MVNRUN_BASE"`
-  MVNRUN_CLASSPATH=`cygpath --path --windows "$MVNRUN_CLASSPATH"`
+  MOP_HOME=`cygpath --windows "$MOP_HOME"`
+  MOP_BASE=`cygpath --windows "$MOP_BASE"`
+  MOP_CLASSPATH=`cygpath --path --windows "$MOP_CLASSPATH"`
   JAVA_HOME=`cygpath --windows "$JAVA_HOME"`
   CLASSPATH=`cygpath --path --windows "$CLASSPATH"`
   CYGHOME=`cygpath --windows "$HOME"`
 fi
 
-if [ -z "$MVNRUN_OPTS" ] ; then
-  MVNRUN_OPTS="-Xmx512M -Dorg.apache.mop.UseDedicatedTaskRunner=true"
+if [ -z "$MOP_OPTS" ] ; then
+  MOP_OPTS="-Xmx512M -Dorg.apache.mop.UseDedicatedTaskRunner=true"
 fi
 
 if [ -z "$SUNJMX" ] ; then
@@ -120,24 +120,24 @@ if [ -z "$SUNJMX" ] ; then
   SUNJMX="-Dcom.sun.management.jmxremote"
 fi
 
-MVNRUN_OPTS="$MVNRUN_OPTS $SUNJMX $SSL_OPTS"
+MOP_OPTS="$MOP_OPTS $SUNJMX $SSL_OPTS"
 
 # Set default classpath
-MVNRUN_CLASSPATH="${MVNRUN_BASE}/conf;"$MVNRUN_CLASSPATH
+MOP_CLASSPATH="${MOP_BASE}/conf;"$MOP_CLASSPATH
 
 # Optionally enable YourKit debugging
 if [ "x$YOURKIT_DEBUG" != "x" ]; then
-    MVNRUN_DEBUG_OPTS="-agentlib:yjpagent"
+    MOP_DEBUG_OPTS="-agentlib:yjpagent"
 fi
 
 # Optionally enable remote debugging
-if [ "x$MVNRUN_DEBUG" != "x" ]; then
-    MVNRUN_DEBUG_OPTS="-Xdebug -Xnoagent -Djava.compiler=NONE -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
+if [ "x$MOP_DEBUG" != "x" ]; then
+    MOP_DEBUG_OPTS="-Xdebug -Xnoagent -Djava.compiler=NONE -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
 fi
 
 if [ -n "$CYGHOME" ]; then
-    exec "$JAVACMD" $MVNRUN_DEBUG_OPTS $MVNRUN_OPTS -Dmop.classpath="${MVNRUN_CLASSPATH}" -Dmop.home="${MVNRUN_HOME}" -Dmop.base="${MVNRUN_BASE}" -Dcygwin.user.home="$CYGHOME" -jar "${MVNRUN_HOME}/mop.jar" $@
+    exec "$JAVACMD" $MOP_DEBUG_OPTS $MOP_OPTS -Dmop.classpath="${MOP_CLASSPATH}" -Dmop.home="${MOP_HOME}" -Dmop.base="${MOP_BASE}" -Dcygwin.user.home="$CYGHOME" -jar "${MOP_HOME}/mop.jar" $@
 else
-    exec "$JAVACMD" $MVNRUN_DEBUG_OPTS $MVNRUN_OPTS -Dmop.classpath="${MVNRUN_CLASSPATH}" -Dmop.home="${MVNRUN_HOME}" -Dmop.base="${MVNRUN_BASE}" -jar "${MVNRUN_HOME}/mop.jar" $@
+    exec "$JAVACMD" $MOP_DEBUG_OPTS $MOP_OPTS -Dmop.classpath="${MOP_CLASSPATH}" -Dmop.home="${MOP_HOME}" -Dmop.base="${MOP_BASE}" -jar "${MOP_HOME}/mop.jar" $@
 fi
 
