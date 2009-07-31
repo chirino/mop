@@ -21,8 +21,8 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 
 /**
@@ -40,7 +40,7 @@ public class Commands {
      * using the {@link #COMMANDS_URI} URI
      */
     public static Map<String,Command> loadCommands(ClassLoader classLoader) {
-        Map<String, Command> answer = new HashMap<String, Command>();
+        Map<String, Command> answer = new TreeMap<String, Command>();
         Enumeration<URL> resources = null;
         try {
             resources = classLoader.getResources(COMMANDS_URI);

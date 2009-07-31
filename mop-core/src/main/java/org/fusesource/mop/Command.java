@@ -26,6 +26,11 @@ public class Command {
     public Command() {
     }
 
+    public Command(String name, String description) {
+        this.name = name;
+        this.description = description;
+    }
+
     public Command(String name, String description, String alias) {
         this.name = name;
         this.description = description;

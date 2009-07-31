@@ -23,6 +23,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.BufferedReader;
+import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
@@ -46,7 +48,7 @@ public class MOP extends AbstractCli {
 
     private static final transient Log LOG = LogFactory.getLog(org.fusesource.mop.MOP.class);
 
-    public static final String DEFAULT_VERSION = "RELEASE";
+    public static final String DEFAULT_VERSION = "LATEST";
 
     private Options options;
     private String scope;
@@ -101,15 +103,41 @@ public class MOP extends AbstractCli {
         System.out.println();
         System.out.println("Commands:");
 
-        System.out.println("\trun       : uses an embedded class loader to run the class's main() method");
-        System.out.println("\tjar       : uses an embedded class loader to run the Main class from the executable jar");
-        System.out.println("\texec      : spawns a separate process to run the class's main() method in a new JVM");
-        System.out.println("\texecjar   : spawns a separate process to run the Main class from the executable jar in a new JVM");
-        System.out.println("\tcopy      : copies all the jars into the given directory");
-        System.out.println("\techo      : displays the command line to set the classpath and run the class's main() method");
-        System.out.println("\tclasspath : displays the classpath for the artifact");
+        checkCommandsLoaded();
+        for (Map.Entry<String, Command> entry : commands.entrySet()) {
+            String description = removeNewLines(entry.getValue().getDescription());
+            // lets remove any newlines
+            System.out.printf("\t%-20s : %s\n", entry.getKey(), description);
+        }
 
         System.out.println();
+    }
+
+    /**
+     * Removes any newlines in the text so its one big line
+     */
+    private String removeNewLines(String text) {
+        StringBuilder buffer = new StringBuilder();
+        BufferedReader reader = new BufferedReader(new StringReader(text));
+        boolean first = true;
+        while (true) {
+            try {
+                String line = reader.readLine();
+                if (line == null) {
+                    break;
+                }
+                if (first) {
+                    first = false;
+                }
+                else {
+                    buffer.append(" ");
+                }
+                buffer.append(line.trim());
+            } catch (IOException e) {
+                LOG.warn("This should never happen. Caught: " + e, e);
+            }
+        }
+        return buffer.toString();
     }
 
     public void invokePlexusComponent(CommandLine cli, PlexusContainer container) throws Exception {
@@ -159,7 +187,7 @@ public class MOP extends AbstractCli {
     }
 
     protected void tryDiscoverCommand(PlexusContainer container, String commandText, LinkedList<String> argList) throws Exception {
-        commands = Commands.loadCommands(getClass().getClassLoader());
+        checkCommandsLoaded();
 
         defaultVersion = DEFAULT_VERSION;
         Command command = commands.get(commandText);
@@ -201,6 +229,28 @@ public class MOP extends AbstractCli {
         LOG.info("About to execute: " + newArguments);
         processCommandLine(container, newArguments);
 
+    }
+
+    void checkCommandsLoaded() {
+        if (commands == null) {
+            commands = Commands.loadCommands(getClass().getClassLoader());
+
+            registerDefaultCommands();
+        }
+    }
+
+    protected void registerDefaultCommands() {
+        registerDefaultCommand("run", "uses an embedded class loader to run the class's main() method");
+        registerDefaultCommand("jar", "uses an embedded class loader to run the Main class from the executable jar");
+        registerDefaultCommand("exec", "spawns a separate process to run the class's main() method in a new JVM");
+        registerDefaultCommand("execjar", "spawns a separate process to run the Main class from the executable jar in a new JVM");
+        registerDefaultCommand("copy", "copies all the jars into the given directory");
+        registerDefaultCommand("echo", "displays the command line to set the classpath and run the class's main() method");
+        registerDefaultCommand("classpath", "displays the classpath for the artifact");
+    }
+
+    protected void registerDefaultCommand(String name, String description) {
+        commands.put(name, new Command(name, description));
     }
 
     private String replaceVariables(String arg) {
