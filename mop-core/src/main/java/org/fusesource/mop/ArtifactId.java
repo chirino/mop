@@ -9,37 +9,44 @@ package org.fusesource.mop;
 
 /**
  * @author chirino
-*/
+ */
 class ArtifactId {
 
     private String groupId;
     private String artifactId;
+    private String type;
     private String classifier;
     private String version;
 
     public ArtifactId() {
     }
 
-    public boolean parse(String value, String defaultVersion) {
+    public boolean parse(String value, String defaultVersion, String defaultType) {
+        type = defaultType;
+        version = defaultVersion;
         String parts[] = value.split(":");
-        switch(parts.length) {
+        switch (parts.length) {
             case 2:
                 groupId = parts[0];
                 artifactId = parts[1];
-                classifier = "jar";
-                version = defaultVersion;
                 return true;
             case 3:
                 groupId = parts[0];
                 artifactId = parts[1];
                 version = parts[2];
-                classifier = "jar";
                 return true;
             case 4:
                 groupId = parts[0];
                 artifactId = parts[1];
-                classifier = parts[2];
+                type = parts[2];
                 version = parts[3];
+                return true;
+            case 5:
+                groupId = parts[0];
+                artifactId = parts[1];
+                type = parts[2];
+                classifier = parts[3];
+                version = parts[4];
                 return true;
             default:
                 return false;
@@ -48,11 +55,11 @@ class ArtifactId {
 
     public boolean strictParse(String value) {
         String parts[] = value.split(":");
-        switch(parts.length) {
+        switch (parts.length) {
             case 4:
                 groupId = parts[0];
                 artifactId = parts[1];
-                classifier = parts[2];
+                type = parts[2];
                 version = parts[3];
                 return true;
             default:
@@ -92,7 +99,15 @@ class ArtifactId {
         this.version = version;
     }
 
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
     public String toString() {
-        return ""+groupId + ":" + artifactId + ":" + classifier + ":" + version;
+        return "" + groupId + ":" + artifactId + ":" + type + (classifier != null ? ":" + classifier : "") + ":" + version;
     }
 }

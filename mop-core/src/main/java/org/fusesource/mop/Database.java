@@ -71,7 +71,7 @@ public class Database {
                 RootEntity root = tx.load(0, RootEntity.MARSHALLER).get();
                 BTreeIndex<String, String> artifacts = root.artifacts.get(tx);
                 BTreeIndex<String, HashSet<String>> artifactIdIndex = root.artifactIdIndex.get(tx);
-                BTreeIndex<String, HashSet<String>> classifierIndex = root.classifierIndex.get(tx);
+                BTreeIndex<String, HashSet<String>> typeIndex = root.typeIndex.get(tx);
 
                 for (String id : dependencies) {
                     ArtifactId a = new ArtifactId();
@@ -82,7 +82,7 @@ public class Database {
                     if (rc == null) {
                         artifacts.put(tx, id, id);
                         indexAdd(tx, artifactIdIndex, id, a.getArtifactId());
-                        indexAdd(tx, classifierIndex, id, a.getClassifier());
+                        indexAdd(tx, typeIndex, id, a.getType());
                     }
                 }
 
@@ -102,13 +102,13 @@ public class Database {
         });
     }
 
-    public Set<String> findByClassifier(final String classifier) throws IOException {
+    public Set<String> findByType(final String type) throws IOException {
         assertOpen();
         return pageFile.tx().execute(new Transaction.CallableClosure<Set<String>, IOException>() {
             public Set<String> execute(Transaction tx) throws IOException {
                 RootEntity root = tx.load(0, RootEntity.MARSHALLER).get();
-                BTreeIndex<String, HashSet<String>> classifierIndex = root.classifierIndex.get(tx);
-                HashSet<String> set = classifierIndex.get(tx, classifier);
+                BTreeIndex<String, HashSet<String>> typeIndex = root.typeIndex.get(tx);
+                HashSet<String> set = typeIndex.get(tx, type);
                 return set == null ? new HashSet() : new HashSet(set);
             }
         });
@@ -154,7 +154,7 @@ public class Database {
         protected BTreeIndexReference<String, HashSet<String>> explicityInstalledArtifacts = new BTreeIndexReference<String, HashSet<String>>();
         protected BTreeIndexReference<String, String> artifacts = new BTreeIndexReference<String, String>();
         protected BTreeIndexReference<String, HashSet<String>> artifactIdIndex = new BTreeIndexReference<String, HashSet<String>>();
-        protected BTreeIndexReference<String, HashSet<String>> classifierIndex = new BTreeIndexReference<String, HashSet<String>>();
+        protected BTreeIndexReference<String, HashSet<String>> typeIndex = new BTreeIndexReference<String, HashSet<String>>();
 
         public void create(Transaction tx) throws IOException {
             // Allocate the root page.
@@ -166,7 +166,7 @@ public class Database {
             explicityInstalledArtifacts.create(tx);
             artifacts.create(tx);
             artifactIdIndex.create(tx);
-            classifierIndex.create(tx);
+            typeIndex.create(tx);
 
             page.set(this);
             tx.store(page, MARSHALLER, true);

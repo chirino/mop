@@ -13,12 +13,11 @@
     </description>
   </command>
 
-  <command name="war" alias="jar ${artifacts} org.mortbay.jetty:jetty-runner:${version}">
+  <command name="war" alias="jar org.mortbay.jetty:jetty-runner:${version}">
     <description>
       runs the WAR artifact(s) using the Jetty Runner. You can use war:version to customize the jetty version used
     </description>
   </command>
-
 
   <command name="karaf" alias="jar org.apache.felix:karaf-main ${artifacts}">
     <description>
