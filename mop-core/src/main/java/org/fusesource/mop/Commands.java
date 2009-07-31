@@ -10,8 +10,6 @@ package org.fusesource.mop;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.w3c.dom.Attr;
-import org.w3c.dom.CharacterData;
-import org.w3c.dom.CDATASection;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -81,7 +79,7 @@ public class Commands {
         answer.setName(element.getAttribute("name"));
         answer.setAlias(element.getAttribute("alias"));
         answer.setDescription(childElemenText(element, "description"));
-        answer.setOptions(childElemenText(element, "options"));
+        answer.setUsage(childElemenText(element, "usage"));
         return answer;
     }
 

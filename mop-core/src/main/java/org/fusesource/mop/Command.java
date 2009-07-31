@@ -21,21 +21,21 @@ public class Command {
 
     private String name;
     private String description;
-    private String options = "";
+    private String usage = "";
     private String alias;
 
     public Command() {
     }
 
-    public Command(String name, String options, String description) {
+    public Command(String name, String usage, String description) {
         this.name = name;
-        this.options = options;
+        this.usage = usage;
         this.description = description;
     }
 
     @Override
     public String toString() {
-        return "Command[name: " + name + " alias: " + alias + " options: " + options + " description: " + description + "]";
+        return "Command[name: " + name + " alias: " + alias + " usage: " + usage + " description: " + description + "]";
 
     }
 
@@ -61,12 +61,12 @@ public class Command {
         this.alias = alias;
     }
 
-    public String getOptions() {
-        return options;
+    public String getUsage() {
+        return usage;
     }
 
-    public void setOptions(String options) {
-        this.options = options;
+    public void setUsage(String usage) {
+        this.usage = usage;
     }
 
     public String getDescription() {

@@ -104,7 +104,7 @@ public class MOP extends AbstractCli {
 
         StringBuilder buffer = new StringBuilder();
         for (Command command : commands.values()) {
-            buffer.append(String.format("\n mop [options] %-20s %s", command.getName(), removeNewLines(command.getOptions())));
+            buffer.append(String.format("\n mop [options] %-20s %s", command.getName(), removeNewLines(command.getUsage())));
         }
         formatter.printHelp(buffer.toString(), "\nOptions:", options, "\n");
 
@@ -151,7 +151,6 @@ public class MOP extends AbstractCli {
     public void invokePlexusComponent(CommandLine cli, PlexusContainer container) throws Exception {
         // lets process the options
         Logger.debug = cli.hasOption('X');
-        System.out.println("Debug: " + Logger.debug);
         scope = cli.getOptionValue('s', "compile");
         localRepo = cli.getOptionValue('l');
         remoteRepos = cli.getOptionValues('r');
@@ -205,6 +204,8 @@ public class MOP extends AbstractCli {
             copyCommand(container, argList);
         } else if (command.equals("war")) {
             warCommand(container, argList);
+        } else if (command.equals("help")) {
+            helpCommand(container, argList);
         } else {
             tryDiscoverCommand(container, command, argList);
         }
@@ -254,6 +255,31 @@ public class MOP extends AbstractCli {
         processCommandLine(container, newArguments);
 
     }
+
+    protected void helpCommand(PlexusContainer container, LinkedList<String> argList) {
+        if (argList.isEmpty()) {
+            displayHelp();
+            return;
+        }
+        for (String commandName : argList) {
+            checkCommandsLoaded();
+            Command command = commands.get(commandName);
+            if (command == null) {
+                System.out.println("No such command '" + command + "'");
+            }
+            else {
+                System.out.println();
+                System.out.println("mop command: " + command.getName());
+                System.out.println();
+                System.out.println("usage:");
+                System.out.println("\t mop [options] " + command.getName() + " " + command.getUsage());
+                System.out.println();
+                System.out.println(command.getDescription());
+                System.out.println();
+            }
+        }
+    }
+
 
     private void execCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
@@ -636,6 +662,8 @@ public class MOP extends AbstractCli {
 
         registerDefaultCommand("copy", "<artifact(s)> targetDirectory", "copies all the jars into the given directory");
         registerDefaultCommand("war", "runs the given (typically war) archetypes in the jetty servlet engine via jetty-runner");
+
+        registerDefaultCommand("help", "<command(s)>", "displays help summarising all of the commands or shows custom help for each command listed");
     }
 
 
@@ -643,8 +671,8 @@ public class MOP extends AbstractCli {
         registerDefaultCommand(name, "<artifact(s)> [<args(s)>]", description);
     }
 
-    protected void registerDefaultCommand(String name, String options, String description) {
-        commands.put(name, new Command(name, options, description));
+    protected void registerDefaultCommand(String name, String usage, String description) {
+        commands.put(name, new Command(name, usage, description));
     }
 
     private String replaceVariables(String arg) {
