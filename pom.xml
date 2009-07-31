@@ -11,6 +11,7 @@
   <url>http://mop.fusesource.org</url>
 
   <properties>
+    <junit-version>3.8.1</junit-version>
     <!--<maven-version>3.0-alpha-2</maven-version>-->
     <maven-version>3.0-SNAPSHOT</maven-version>
     <!--<maven-version>3.0-TYCHO-797695</maven-version>-->
@@ -114,6 +115,8 @@
 
   <modules>
     <module>mop-core</module>
+    <module>mop-guice</module>
+    <module>mop-spring</module>
     <module>mop</module>
   </modules>
 
