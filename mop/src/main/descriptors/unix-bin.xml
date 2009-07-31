@@ -12,11 +12,10 @@
       <directory>src/distro</directory>
       <outputDirectory>/</outputDirectory>
       <includes>
-        <include>*</include>
+        <include>**/*</include>
       </includes>
       <excludes>
-        <exclude>mop*</exclude>
-        <exclude>*.bat</exclude>
+        <exclude>bin/mop*</exclude>
       </excludes>
       <lineEnding>unix</lineEnding>
     </fileSet>
@@ -26,11 +25,8 @@
       <directory>src/distro</directory>
       <outputDirectory></outputDirectory>
       <includes>
-        <include>mop</include>
+        <include>bin/mop</include>
       </includes>
-      <excludes>
-        <exclude>*.bat</exclude>
-      </excludes>
       <fileMode>0755</fileMode>
       <lineEnding>unix</lineEnding>
     </fileSet>

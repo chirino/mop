@@ -4,7 +4,7 @@
   <!-- Copy over jar files -->
   <dependencySets>
   <dependencySet>
-    <outputDirectory>/</outputDirectory>
+    <outputDirectory>/bin/</outputDirectory>
     <unpack>false</unpack>
     <outputFileNameMapping>mop.jar</outputFileNameMapping>
     <includes>

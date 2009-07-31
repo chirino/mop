@@ -159,6 +159,7 @@ public class MOP extends AbstractCli {
         scope = cli.getOptionValue('s', "compile");
         localRepo = cli.getOptionValue('l');
         remoteRepos = cli.getOptionValues('r');
+        online = cli.hasOption('o');
 
         // now the remaining command line args
         try {
