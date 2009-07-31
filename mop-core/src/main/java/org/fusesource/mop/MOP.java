@@ -98,25 +98,21 @@ public class MOP extends AbstractCli {
         System.out.println("using maven repositories to download code and create classpaths");
         System.out.println();
 
+        checkCommandsLoaded();
+
         HelpFormatter formatter = new HelpFormatter();
 
-        // TODO we need to be able to get the arguments help for each command...
-        formatter.printHelp(
-                "\n mop [options] run       <artifact> className [<args(s)>]" +
-                        "\n mop [options] jar       <artifact> [<args(s)>]" +
-                        "\n mop [options] exec      <artifact> className [<args(s)>]" +
-                        "\n mop [options] execjar   <artifact> [<args(s)>]" +
-                        "\n mop [options] copy      <artifact> target_directory" +
-                        "\n mop [options] echo      <artifact> [className] [<arg(s)>]" +
-                        "\n mop [options] classpath <artifact>",
-                "\nOptions:", options, "\n");
+        StringBuilder buffer = new StringBuilder();
+        for (Command command : commands.values()) {
+            buffer.append(String.format("\n mop [options] %-20s %s", command.getName(), removeNewLines(command.getUsage())));
+        }
+        formatter.printHelp(buffer.toString(), "\nOptions:", options, "\n");
 
         System.out.println();
         System.out.println("<artifact> is of the format: groupId:artifactId[[:type[:classifier]]:version] [+<artifact>]");
         System.out.println();
         System.out.println("Commands:");
 
-        checkCommandsLoaded();
         for (Map.Entry<String, Command> entry : commands.entrySet()) {
             String description = removeNewLines(entry.getValue().getDescription());
             // lets remove any newlines
@@ -155,7 +151,6 @@ public class MOP extends AbstractCli {
     public void invokePlexusComponent(CommandLine cli, PlexusContainer container) throws Exception {
         // lets process the options
         Logger.debug = cli.hasOption('X');
-        System.out.println("Debug: " + Logger.debug);
         scope = cli.getOptionValue('s', "compile");
         localRepo = cli.getOptionValue('l');
         remoteRepos = cli.getOptionValues('r');
@@ -210,6 +205,8 @@ public class MOP extends AbstractCli {
             copyCommand(container, argList);
         } else if (command.equals("war")) {
             warCommand(container, argList);
+        } else if (command.equals("help")) {
+            helpCommand(container, argList);
         } else {
             tryDiscoverCommand(container, command, argList);
         }
@@ -259,6 +256,31 @@ public class MOP extends AbstractCli {
         processCommandLine(container, newArguments);
 
     }
+
+    protected void helpCommand(PlexusContainer container, LinkedList<String> argList) {
+        if (argList.isEmpty()) {
+            displayHelp();
+            return;
+        }
+        for (String commandName : argList) {
+            checkCommandsLoaded();
+            Command command = commands.get(commandName);
+            if (command == null) {
+                System.out.println("No such command '" + command + "'");
+            }
+            else {
+                System.out.println();
+                System.out.println("mop command: " + command.getName());
+                System.out.println();
+                System.out.println("usage:");
+                System.out.println("\t mop [options] " + command.getName() + " " + command.getUsage());
+                System.out.println();
+                System.out.println(command.getDescription());
+                System.out.println();
+            }
+        }
+    }
+
 
     private void execCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
@@ -630,18 +652,28 @@ public class MOP extends AbstractCli {
     }
 
     protected void registerDefaultCommands() {
-        registerDefaultCommand("run", "uses an embedded class loader to run the class's main() method");
         registerDefaultCommand("jar", "uses an embedded class loader to run the Main class from the executable jar");
-        registerDefaultCommand("exec", "spawns a separate process to run the class's main() method in a new JVM");
         registerDefaultCommand("execjar", "spawns a separate process to run the Main class from the executable jar in a new JVM");
-        registerDefaultCommand("copy", "copies all the jars into the given directory");
-        registerDefaultCommand("echo", "displays the command line to set the classpath and run the class's main() method");
-        registerDefaultCommand("classpath", "displays the classpath for the artifact");
+
+        registerDefaultCommand("run", "<artifact(s)> <className> [<args(s)>]", "uses an embedded class loader to run the class's main() method");
+        registerDefaultCommand("exec", "<artifact(s)> <className> [<args(s)>]", "spawns a separate process to run the class's main() method in a new JVM");
+
+        registerDefaultCommand("echo", "<artifact(s)> [<className>] [<arg(s)>]", "displays the command line to set the classpath and run the class's main() method");
+        registerDefaultCommand("classpath", "<artifact(s)>", "displays the classpath for the artifact");
+
+        registerDefaultCommand("copy", "<artifact(s)> targetDirectory", "copies all the jars into the given directory");
         registerDefaultCommand("war", "runs the given (typically war) archetypes in the jetty servlet engine via jetty-runner");
+
+        registerDefaultCommand("help", "<command(s)>", "displays help summarising all of the commands or shows custom help for each command listed");
     }
 
+
     protected void registerDefaultCommand(String name, String description) {
-        commands.put(name, new Command(name, description));
+        registerDefaultCommand(name, "<artifact(s)> [<args(s)>]", description);
+    }
+
+    protected void registerDefaultCommand(String name, String usage, String description) {
+        commands.put(name, new Command(name, usage, description));
     }
 
     private String replaceVariables(String arg) {
