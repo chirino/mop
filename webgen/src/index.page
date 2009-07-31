@@ -1,50 +1,154 @@
 ---
-title: Home
+# Copyright (C) 2009, Progress Software Corporation and/or its
+# subsidiaries or affiliates.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+title: MOP
 in_menu: true
 sort_info: 1
 --- name:overview pipeline:haml,tags
 
-%h1 {project_name:}
-
+%h1 MOP
 {project_slogan:}
 
---- name:spot 
-<div class='title'>
-  &nbsp;
-</div>
-<div class='content'>
-  <table><tr>
-    <td>
-	    <h2>Learn More</h2>
-	    <a class='main' href='{relocatable: /documentation}'>
-  	    <img src='{relocatable: /images/spot-learn-more.jpg}'/>
-  	    <br />
-  	    Documentation
-	    </a>
-    </td>
-    <td>
-	    <h2>Get Started</h2>  
-	    <a class='main' href='{relocatable: /download.html}'>
-  	    <img src='{relocatable: /images/spot-download-releases.jpg}' />
-  	    <br />
-  	    Get the latest version here
-	    </a>
-    </td>
-    <td>
-    <h2>Get Involved</h2>  
-	    <div class='spot-balloon'>
-	      <ul>
-	        <li><a href="{project_forums_url:}">Forums</a></li>
-	        <li><a href="{project_issue_url:}">Issue Tracker</a></li>
-	        <li><a href="{project_wiki_url:}">Wiki</a></li>
-	        <li><a href="{relocatable: /source.html}">Source Code</a></li>
-	      </ul>
-	    </div>
-	    <a class='main' href='{project_forums_url:}'>
-  	    Join the community!
-	    </a>
-    </td>
-  </tr></table>
-</div>
---- name:content
+--- name:content pipeline:haml,tags
 
+.left
+  %h1 What is MOP?
+.right
+  %p
+    %b MOP 
+    is a small utility for executing Java programs which are stored as artifacts like jars or bundles
+    in a Maven repository. 
+    
+  %p
+    %b MOP
+    automatically deals with the following for you
+    %ul
+      %li transitive dependencies
+      %li downloading artifacts from remote repositories and caching them locally
+      %li setting up your classpath
+    
+.left
+  %h1 Using MOP
+.right
+  %p
+    First
+    %a{:href=>'download.html'} download and install mop
+    then you can run it from the command line as follows
+    
+  :plain
+    {coderay::plain}
+    mop
+    {coderay}
+    
+  %p
+    This will then output the command line help to show the command line arguments you can use.
+    
+  %p
+    If you are inside the download directory (or you copy the mop.jar to your current directory) then
+    you can just execute the jar directly instead of running the
+    %b mop 
+    script as follows
+
+  :plain
+    {coderay::plain}
+    java -jar mop.jar
+    {coderay}
+
+
+.left
+  %h1 Running Java programs
+.right
+  %p
+    The following example will boot up one of the
+    %a{:href=>'http://camel.apache.org/'} Apache Camel
+    example
+    %a{:href=>''} programs
+
+  :plain
+    {coderay::plain}
+    mop run org.apache.camel:camel-example-pojo-messaging org.apache.camel.spring.Main
+    {coderay}
+
+  %p 
+    The
+    %b run
+    command takes a
+    %b maven artifact name
+    then a Java class name along with optional command line arguments. The maven artifact uses the following format
+    %ul
+      %li 
+        %b groupId:artifactId[[:classifier]:version]
+    so that you can omit the classifier and version if you require.
+    
+  %p
+    The above will startup MOP in a JVM and then start the Main inside the same JVM in a separate class loader.
+    If you want MOP to fork a separate JVM process then switch the
+    %b run
+    command with 
+    %b exec
+    as follows
+    
+  :plain
+    {coderay::plain}
+    mop exec org.apache.camel:camel-example-pojo-messaging org.apache.camel.spring.Main
+    {coderay}
+
+  %p
+    If the jar is an 
+    %b executable jar
+    so that its 
+    %a{:href=>'http://java.sun.com/j2se/1.5.0/docs/guide/jar/jar.html'} Jar manifest  
+    has a 
+    %b Main-Class
+    entry, then you can use the
+    %b jar
+    command instead which allows you to omit the Java class name as follows
+       
+  :plain
+    {coderay::plain}
+    mop jar org.apache.camel:camel-example-pojo-messaging
+    {coderay}
+    
+.left
+  %h1 Scripting Goodies
+.right
+  
+  %p
+    Sometimes, you just want to see what command line you need to type in to run the Main.  Try this
+    
+  :plain
+    {coderay::plain}
+    mop echo org.apache.camel:camel-example-pojo-messaging org.apache.camel.spring.Main
+    {coderay}
+
+    
+  %p
+    Other times, you just need need the CLASSPATH so you can use it in a manually crafted script your running.  Try this.
+    
+  :plain
+    {coderay::plain}
+    mop classpath org.apache.camel:camel-example-pojo-messaging
+    {coderay}
+
+    
+  %p
+    Or maybe you just want to copy all those jars in the classpath to directory, perhaps your trying to populate a `WEB-INF/lib` directory.
+    
+  :plain
+    {coderay::plain}
+    mop copy org.apache.camel:camel-example-pojo-messaging WEB-INF/lib
+    {coderay}
+    

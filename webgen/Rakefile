@@ -16,7 +16,7 @@ require 'ext/fuse/sitecopy_rake.rb'
 
 # TODO must change this to the actual project!
 # one day it would be nice to find this from the src/metainfo file
-project_id = "CHANGEME"
+project_id = "mop"
 
 task :default => :webgen
 task :rebuild => [:clobber, :webgen]
