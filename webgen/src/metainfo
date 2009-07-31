@@ -33,6 +33,7 @@
   project_svn_tags_url: 'http://fusesource.com/forge/svn/mop/tags'
   project_maven_groupId: 'org.fusesource.mop'
   project_maven_artifactId: mop
+  project_logo: '/images/mop-logo.png'
 
 blog/*/**/*:
   template: /styles/impact/blog.template
