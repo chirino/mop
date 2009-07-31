@@ -10,6 +10,8 @@ package org.fusesource.mop;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.w3c.dom.Attr;
+import org.w3c.dom.CharacterData;
+import org.w3c.dom.CDATASection;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -39,7 +41,7 @@ public class Commands {
      * Loads all of the MRS commmands that can be found on the classpath in the given class loader
      * using the {@link #COMMANDS_URI} URI
      */
-    public static Map<String,Command> loadCommands(ClassLoader classLoader) {
+    public static Map<String, Command> loadCommands(ClassLoader classLoader) {
         Map<String, Command> answer = new TreeMap<String, Command>();
         Enumeration<URL> resources = null;
         try {
@@ -47,12 +49,12 @@ public class Commands {
         } catch (IOException e) {
             LOG.debug("Could not load any MRS commands via " + COMMANDS_URI, e);
         }
-            if (resources != null) {
+        if (resources != null) {
             while (resources.hasMoreElements()) {
                 URL url = resources.nextElement();
                 loadCommands(answer, url);
             }
-            }
+        }
         return answer;
     }
 
@@ -78,10 +80,16 @@ public class Commands {
         Command answer = new Command();
         answer.setName(element.getAttribute("name"));
         answer.setAlias(element.getAttribute("alias"));
-        NodeList descriptionList = element.getElementsByTagName("description");
-        String text = toString(descriptionList);
-        answer.setDescription(text.trim());
+        answer.setDescription(childElemenText(element, "description"));
+        answer.setOptions(childElemenText(element, "options"));
         return answer;
+    }
+
+    protected static String childElemenText(Element element, String elementName) {
+        NodeList descriptionList = element.getElementsByTagName(elementName);
+        String text = toString(descriptionList);
+        String value = text.trim();
+        return value;
     }
 
     public static String toString(NodeList nodeList) {

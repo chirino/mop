@@ -21,21 +21,16 @@ public class Command {
 
     private String name;
     private String description;
-    private String options;
+    private String options = "";
     private String alias;
 
     public Command() {
     }
 
-    public Command(String name, String description) {
+    public Command(String name, String options, String description) {
         this.name = name;
+        this.options = options;
         this.description = description;
-    }
-
-    public Command(String name, String description, String alias) {
-        this.name = name;
-        this.description = description;
-        this.alias = alias;
     }
 
     @Override
