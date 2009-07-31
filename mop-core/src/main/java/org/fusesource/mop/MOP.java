@@ -112,7 +112,7 @@ public class MOP extends AbstractCli {
                 "\nOptions:", options, "\n");
 
         System.out.println();
-        System.out.println("<artifact> is of the format: groupId:artifactId[[:classifier]:version] [+<artifact>]");
+        System.out.println("<artifact> is of the format: groupId:artifactId[[:type[:classifier]]:version] [+<artifact>]");
         System.out.println();
         System.out.println("Commands:");
 
@@ -320,7 +320,7 @@ public class MOP extends AbstractCli {
             }
         });
 
-        System.out.println("Running war with files: " + files);
+        LOG.debug("Running war with files: " + files);
 
 
         LinkedList<String> newArgs = new LinkedList<String>();
@@ -331,7 +331,7 @@ public class MOP extends AbstractCli {
             newArgs.add(file.toString());
         }
 
-        System.out.println("About to run: " + newArgs);
+        LOG.debug("About to run: " + newArgs);
         processCommandLine(container, newArgs);
     }
 
@@ -636,6 +636,7 @@ public class MOP extends AbstractCli {
         registerDefaultCommand("copy", "copies all the jars into the given directory");
         registerDefaultCommand("echo", "displays the command line to set the classpath and run the class's main() method");
         registerDefaultCommand("classpath", "displays the classpath for the artifact");
+        registerDefaultCommand("war", "runs the given (typically war) archetypes in the jetty servlet engine via jetty-runner");
     }
 
     protected void registerDefaultCommand(String name, String description) {

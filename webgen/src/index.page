@@ -90,8 +90,14 @@ sort_info: 1
     then a Java class name along with optional command line arguments. The maven artifact uses the following format
     %ul
       %li 
-        %b groupId:artifactId[[:classifier]:version]
-    so that you can omit the classifier and version if you require.
+        %b groupId:artifactId[[:type[:classifier]]:version]
+    so that you can omit the type, classifier and version if you require. You typically may supply
+    just groupId, artifactId, version if you like - or if you really need to specify type (jar/war etc) and
+    classifier if needed.
+
+    Typically the commands default to the right type; for example when using the
+    %b war
+    command it will default the type to be war for you.
     
   %p
     The above will startup MOP in a JVM and then start the Main inside the same JVM in a separate class loader.
@@ -120,6 +126,35 @@ sort_info: 1
   :plain
     {coderay::plain}
     mop jar org.apache.camel:camel-example-pojo-messaging
+    {coderay}
+    
+.left
+  %h1 Running Web Applications
+.right
+  %p
+    If you have a WAR in a repository somewhere you can run it via
+
+  :plain
+    {coderay::plain}
+    mop war <artifacts>
+    {coderay}
+
+  %p
+    For example if you want to run the
+    %a{:href=>'http://activemq.apache.org/web-console.html'} ActiveMQ Web console and broker
+    you can run the following
+
+  :plain
+    {coderay::plain}
+    mop war org.apache.activemq:activemq-web-console:5.2.0
+    {coderay}
+
+  %p
+    Though there is a simple alias to let you run Apache ActiveMQ
+
+  :plain
+    {coderay::plain}
+    mop broker:5.2.0
     {coderay}
     
 .left
