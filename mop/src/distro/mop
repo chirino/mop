@@ -1,0 +1,143 @@
+#!/bin/sh
+# ------------------------------------------------------------------------
+
+# load system-wide mop configuration
+if [ -f "/etc/mop.conf" ] ; then
+  . /etc/mop.conf
+fi
+
+# provide default values for people who don't use RPMs
+if [ -z "$usejikes" ] ; then
+  usejikes=false;
+fi
+
+# load user mop configuration
+if [ -f "$HOME/.moprc" ] ; then
+  . "$HOME/.moprc"
+fi
+
+# OS specific support.  $var _must_ be set to either true or false.
+cygwin=false;
+darwin=false;
+case "`uname`" in
+  CYGWIN*) cygwin=true ;;
+  Darwin*) darwin=true
+           if [ -z "$JAVA_HOME" ] ; then
+             JAVA_HOME=/System/Library/Frameworks/JavaVM.framework/Home
+           fi
+           ;;
+esac
+
+if [ -z "$MVNRUN_HOME" ] ; then
+  # try to find MVNRUN
+  if [ -d /opt/mop ] ; then
+    MVNRUN_HOME=/opt/mop
+  fi
+
+  if [ -d "${HOME}/opt/mop" ] ; then
+    MVNRUN_HOME="${HOME}/opt/mop"
+  fi
+
+  ## resolve links - $0 may be a link to mop's home
+  PRG="$0"
+  progname=`basename "$0"`
+  saveddir=`pwd`
+
+  # need this for relative symlinks
+  dirname_prg=`dirname "$PRG"`
+  cd "$dirname_prg"
+
+  while [ -h "$PRG" ] ; do
+    ls=`ls -ld "$PRG"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '.*/.*' > /dev/null; then
+    PRG="$link"
+    else
+    PRG=`dirname "$PRG"`"/$link"
+    fi
+  done
+
+  MVNRUN_HOME=`dirname "$PRG"`
+
+  cd "$saveddir"
+
+  # make it fully qualified
+  MVNRUN_HOME=`cd "$MVNRUN_HOME" && pwd`
+fi
+
+# For Cygwin, ensure paths are in UNIX format before anything is touched
+if $cygwin ; then
+  [ -n "$MVNRUN_HOME" ] &&
+    MVNRUN_HOME=`cygpath --unix "$MVNRUN_HOME"`
+  [ -n "$JAVA_HOME" ] &&
+    JAVA_HOME=`cygpath --unix "$JAVA_HOME"`
+  [ -n "$CLASSPATH" ] &&
+    CLASSPATH=`cygpath --path --unix "$CLASSPATH"`
+fi
+
+if [ -z "$JAVACMD" ] ; then
+  if [ -n "$JAVA_HOME"  ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+      # IBM's JDK on AIX uses strange locations for the executables
+      JAVACMD="$JAVA_HOME/jre/sh/java"
+    else
+      JAVACMD="$JAVA_HOME/bin/java"
+    fi
+  else
+    JAVACMD=`which java 2> /dev/null `
+    if [ -z "$JAVACMD" ] ; then
+        JAVACMD=java
+    fi
+  fi
+fi
+
+if [ ! -x "$JAVACMD" ] ; then
+  echo "Error: JAVA_HOME is not defined correctly."
+  echo "  We cannot execute $JAVACMD"
+  exit 1
+fi
+
+if [ -z "$MVNRUN_BASE" ] ; then
+  MVNRUN_BASE="$MVNRUN_HOME"
+fi
+
+# For Cygwin, switch paths to Windows format before running java
+if $cygwin; then
+  MVNRUN_HOME=`cygpath --windows "$MVNRUN_HOME"`
+  MVNRUN_BASE=`cygpath --windows "$MVNRUN_BASE"`
+  MVNRUN_CLASSPATH=`cygpath --path --windows "$MVNRUN_CLASSPATH"`
+  JAVA_HOME=`cygpath --windows "$JAVA_HOME"`
+  CLASSPATH=`cygpath --path --windows "$CLASSPATH"`
+  CYGHOME=`cygpath --windows "$HOME"`
+fi
+
+if [ -z "$MVNRUN_OPTS" ] ; then
+  MVNRUN_OPTS="-Xmx512M -Dorg.apache.mop.UseDedicatedTaskRunner=true"
+fi
+
+if [ -z "$SUNJMX" ] ; then
+  #SUNJMX="-Dcom.sun.management.jmxremote.port=1099 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
+  SUNJMX="-Dcom.sun.management.jmxremote"
+fi
+
+MVNRUN_OPTS="$MVNRUN_OPTS $SUNJMX $SSL_OPTS"
+
+# Set default classpath
+MVNRUN_CLASSPATH="${MVNRUN_BASE}/conf;"$MVNRUN_CLASSPATH
+
+# Optionally enable YourKit debugging
+if [ "x$YOURKIT_DEBUG" != "x" ]; then
+    MVNRUN_DEBUG_OPTS="-agentlib:yjpagent"
+fi
+
+# Optionally enable remote debugging
+if [ "x$MVNRUN_DEBUG" != "x" ]; then
+    MVNRUN_DEBUG_OPTS="-Xdebug -Xnoagent -Djava.compiler=NONE -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
+fi
+
+if [ -n "$CYGHOME" ]; then
+    exec "$JAVACMD" $MVNRUN_DEBUG_OPTS $MVNRUN_OPTS -Dmop.classpath="${MVNRUN_CLASSPATH}" -Dmop.home="${MVNRUN_HOME}" -Dmop.base="${MVNRUN_BASE}" -Dcygwin.user.home="$CYGHOME" -jar "${MVNRUN_HOME}/mop.jar" $@
+else
+    exec "$JAVACMD" $MVNRUN_DEBUG_OPTS $MVNRUN_OPTS -Dmop.classpath="${MVNRUN_CLASSPATH}" -Dmop.home="${MVNRUN_HOME}" -Dmop.base="${MVNRUN_BASE}" -jar "${MVNRUN_HOME}/mop.jar" $@
+fi
+

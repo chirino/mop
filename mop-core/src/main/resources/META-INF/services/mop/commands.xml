@@ -1,0 +1,44 @@
+<commands>
+  <command name="spring" alias="run ${artifacts} org.fusesource.mop:mop-spring org.fusesource.mop.spring.Main">
+    <description>
+      Runs the given artifact(s) by starting the XML application context specified as an argument or defaults to
+      META-INF/spring/*.xml
+    </description>
+  </command>
+
+  <command name="guice" alias="run ${artifacts} org.fusesource.mop:mop-guice org.fusesource.mop.guice.Main">
+    <description>
+      Runs the given artifact(s) by starting a Guice injector and injecting all of the given modules listed on the
+      command line
+    </description>
+  </command>
+
+  <command name="war" alias="jar ${artifacts} org.mortbay.jetty:jetty-runner:${version}">
+    <description>
+      runs the WAR artifact(s) using the Jetty Runner. You can use war:version to customize the jetty version used
+    </description>
+  </command>
+
+
+  <command name="karaf" alias="jar org.apache.felix:karaf-main ${artifacts}">
+    <description>
+      Starts an embedded Karaf container and deploys the given artifact(s) inside it
+    </description>
+  </command>
+
+  <command name="broker" alias="war org.apache.activemq:activemq-web-console:${version}">
+    <description>
+      Starts an Apache ActiveMQ broker along with the web console. You can use broker:version to specify the ActiveMQ
+      version
+    </description>
+  </command>
+
+
+  <!-- Camel examples -->
+  <command name="camel-example-pojo" alias="run org.apache.camel:camel-example-pojo-messaging:${version} org.apache.camel.spring.Main">
+    <description>
+      Runs the Apache Camel POJO Messaging Example. For more see: http://camel.apache.org/pojo-messaging-example.html
+    </description>
+  </command>
+
+</commands>

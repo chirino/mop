@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component>
+
+  <!-- Copy over jar files -->
+  <dependencySets>
+  <dependencySet>
+    <outputDirectory>/</outputDirectory>
+    <unpack>false</unpack>
+    <outputFileNameMapping>mop.jar</outputFileNameMapping>
+    <includes>
+      <include>${pom.groupId}:mop-core</include>
+    </includes>
+  </dependencySet>
+</dependencySets>
+
+</component>

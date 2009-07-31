@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assembly>
+  <id>bin</id>
+  <formats>
+    <format>zip</format>
+  </formats>
+
+  <fileSets>
+
+    <!-- Copy over everything that needs to get dos line endings -->
+    <fileSet>
+      <directory>src/distro</directory>
+      <outputDirectory>/</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+      <excludes>
+        <exclude>mop*</exclude>
+        <exclude>*.bat</exclude>
+      </excludes>
+      <lineEnding>dos</lineEnding>
+    </fileSet>
+
+    <fileSet>
+      <directory>src/distro</directory>
+      <outputDirectory>/</outputDirectory>
+      <includes>
+        <include>*.bat</include>
+        <include>**/*.bat</include>
+      </includes>
+      <lineEnding>dos</lineEnding>
+    </fileSet>
+
+  </fileSets>
+
+  <componentDescriptors>
+    <componentDescriptor>src/main/descriptors/common-bin.xml</componentDescriptor>
+  </componentDescriptors>
+
+</assembly>

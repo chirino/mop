@@ -1,0 +1,75 @@
+package org.fusesource.mop;
+
+import junit.framework.TestCase;
+import org.apache.maven.artifact.InvalidRepositoryException;
+import org.codehaus.plexus.PlexusContainer;
+import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
+
+import java.util.List;
+import java.util.ArrayList;
+import java.io.File;
+
+/**
+ * Some simple tests of command line argument processing
+ */
+public class CommandLineTest extends TestCase {
+    protected MOP mavenRunner;
+    protected String groupId = "org.apache.activemq";
+    protected String artifactId = "activemq-core";
+    protected String version = "RELEASE";
+    protected String className = "SomeClass";
+    protected String arg0 = "arg0";
+    protected String arg1 = "arg1";
+
+    public void testShowHelp() {
+        int rc = new MOP().execute(new String[]{"-h"});
+        assertEquals(0, rc);
+    }
+
+    public void testClassPathCommand() {
+        int rc = new MOP().execute(new String[]{"classpath", groupId+":"+artifactId, className, arg0, arg1});
+        assertEquals(0, rc);
+    }
+
+    public void testEchoCommand() {
+        int rc = new MOP().execute(new String[]{"echo", groupId+":"+artifactId, className, arg0, arg1});
+        assertEquals(0, rc);
+    }
+
+    public void testUsingLatestRelease() {
+        doRun("-X", "exec", groupId+":"+artifactId, className, arg0, arg1);
+    }
+
+    public void testUsingSpecificVersion() {
+        version = "5.1.0";
+        doRun("-X", "exec", groupId+":"+artifactId+":"+version, className, arg0, arg1);
+    }
+
+    public void testSpecifyManyRepos() {
+        doRun("-X", "-r", "http://repository.ops4j.org/maven2", "-r", "http://repository.apache.org/content/groups/public", "exec", groupId+":"+artifactId, className, arg0, arg1);
+    }
+
+    protected void doRun(String... args) {
+        mavenRunner = new MOP() {
+            @Override
+            protected List<File> resolveFiles(PlexusContainer container) throws ComponentLookupException, InvalidRepositoryException {
+                System.out.println("We would be doing something now :)");
+                return new ArrayList<File>();
+            }
+        };
+        int rc = mavenRunner.execute(args);
+        assertEquals(0, rc);
+        
+        assertEquals("mavenRunner.getGroupId()", groupId, mavenRunner.getArtifactIds().get(0).getGroupId());
+        assertEquals("mavenRunner.getArtifactId()", artifactId, mavenRunner.getArtifactIds().get(0).getArtifactId());
+        assertEquals("mavenRunner.getVersion()", version, mavenRunner.getArtifactIds().get(0).getVersion());
+        assertEquals("mavenRunner.getClassName()", className, mavenRunner.getClassName());
+
+        List remainingArgs = mavenRunner.getReminingArgs();
+        assertEquals("remainingArgs size", 2, remainingArgs.size());
+        assertEquals("remainingArgs(0)", arg0, remainingArgs.get(0));
+        assertEquals("remainingArgs(1)", arg1, remainingArgs.get(1));
+
+
+    }
+}

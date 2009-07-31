@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assembly>
+  <id>bin</id>
+  <formats>
+    <format>tar.gz</format>
+  </formats>
+
+  <fileSets>
+
+    <!-- Copy over everything that needs to get unix line endings -->
+    <fileSet>
+      <directory>src/distro</directory>
+      <outputDirectory>/</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+      <excludes>
+        <exclude>mop*</exclude>
+        <exclude>*.bat</exclude>
+      </excludes>
+      <lineEnding>unix</lineEnding>
+    </fileSet>
+
+    <!-- Copy over the files that need unix line endings and also chmod to 755 -->
+    <fileSet>
+      <directory>src/distro</directory>
+      <outputDirectory></outputDirectory>
+      <includes>
+        <include>mop</include>
+      </includes>
+      <excludes>
+        <exclude>*.bat</exclude>
+      </excludes>
+      <fileMode>0755</fileMode>
+      <lineEnding>unix</lineEnding>
+    </fileSet>
+
+  </fileSets>
+
+  <componentDescriptors>
+    <componentDescriptor>src/main/descriptors/common-bin.xml</componentDescriptor>
+  </componentDescriptors>
+
+</assembly>
