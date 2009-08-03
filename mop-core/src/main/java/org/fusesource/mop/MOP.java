@@ -23,10 +23,7 @@ import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
-import org.apache.maven.artifact.resolver.ResolutionListener;
 import org.apache.maven.repository.RepositorySystem;
-import org.apache.maven.wagon.events.TransferListener;
-import org.apache.maven.wagon.events.TransferEvent;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.tools.cli.AbstractCli;
 import org.fusesource.mop.commands.Install;
@@ -230,8 +227,38 @@ public class MOP extends AbstractCli {
             warCommand(container, argList);
         } else if (command.equals("help")) {
             helpCommand(container, argList);
+        } else if (command.equals("list")) {
+            listCommand(argList);
         } else {
             tryDiscoverCommand(command, argList);
+        }
+    }
+
+    private void listCommand(LinkedList<String> argList) throws UsageException, IOException {
+        String type = "installed";
+        if( !argList.isEmpty() ) {
+            type = argList.removeFirst();
+        }
+
+        Database database = new Database();
+        database.setDirectroy(new File(new File(localRepo), ".index"));
+        database.open(true);
+        try {
+            if( type.equals("installed") ) {
+                Set<String> list = database.listInstalled();
+                for (String s : list) {
+                    System.out.println(s);
+                }
+            } else if( type.equals("all") ) {
+                Set<String> list = database.listAll();
+                for (String s : list) {
+                    System.out.println(s);
+                }
+            } else {
+                throw new UsageException("list all|installed");
+            }
+        } finally {
+            database.close();
         }
     }
 

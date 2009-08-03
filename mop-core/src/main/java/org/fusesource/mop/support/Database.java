@@ -170,6 +170,43 @@ public class Database {
         });
     }
 
+
+    public TreeSet<String> listAll() throws IOException {
+        assertOpen();
+        return pageFile.tx().execute(new Transaction.CallableClosure<TreeSet<String>, IOException>() {
+            public TreeSet<String> execute(Transaction tx) throws IOException {
+                RootEntity root = RootEntity.load(tx);
+                BTreeIndex<String, Integer> artifacts = root.artifacts.get(tx);
+                Iterator<Map.Entry<String,Integer>> i = artifacts.iterator(tx);
+                TreeSet<String> rc = new TreeSet<String>(); 
+                while (i.hasNext()) {
+                    Map.Entry<String,Integer> entry =  i.next();
+                    rc.add(entry.getKey());
+                }
+                return rc;
+            }
+        });
+    }
+
+    public TreeSet<String> listInstalled() throws IOException {
+        assertOpen();
+        return pageFile.tx().execute(new Transaction.CallableClosure<TreeSet<String>, IOException>() {
+            public TreeSet<String> execute(Transaction tx) throws IOException {
+                RootEntity root = RootEntity.load(tx);
+                BTreeIndex<String, HashSet<String>> explicityInstalledArtifacts = root.explicityInstalledArtifacts.get(tx);
+                Iterator<Map.Entry<String, HashSet<String>>> i = explicityInstalledArtifacts.iterator(tx);
+
+                TreeSet<String> rc = new TreeSet<String>();
+                while (i.hasNext()) {
+                    Map.Entry<String, HashSet<String>> entry =  i.next();
+                    rc.add(entry.getKey());
+                }
+                return rc;
+            }
+        });
+    }
+
+
     ///////////////////////////////////////////////////////////////////
     // helper methods
     ///////////////////////////////////////////////////////////////////
