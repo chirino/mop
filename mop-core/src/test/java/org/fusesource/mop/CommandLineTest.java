@@ -20,25 +20,25 @@ import java.io.File;
  */
 public class CommandLineTest extends TestCase {
     protected MOP mavenRunner;
-    protected String groupId = "org.apache.activemq";
-    protected String artifactId = "activemq-core";
+    protected String groupId = "javax.servlet";
+    protected String artifactId = "servlet-api";
     protected String version = "RELEASE";
     protected String className = "SomeClass";
     protected String arg0 = "arg0";
     protected String arg1 = "arg1";
-
+    
     public void testShowHelp() {
         int rc = new MOP().execute(new String[]{"-h"});
         assertEquals(0, rc);
     }
 
     public void testClassPathCommand() {
-        int rc = new MOP().execute(new String[]{"classpath", groupId+":"+artifactId, className, arg0, arg1});
+        int rc = new MOP().execute(new String[]{"-o", "-l", "target/test-repo", "classpath", "javax.servlet:servlet-api:2.3", className});
         assertEquals(0, rc);
     }
 
     public void testEchoCommand() {
-        int rc = new MOP().execute(new String[]{"echo", groupId+":"+artifactId, className, arg0, arg1});
+        int rc = new MOP().execute(new String[]{"-o", "-l", "target/test-repo", "echo", "javax.servlet:servlet-api:2.3", className, arg0, arg1});
         assertEquals(0, rc);
     }
 

@@ -187,13 +187,14 @@ public class MOP extends AbstractCli {
             displayHelp();
             throw e;
         } catch (Throwable e) {
-            System.out.println("Failed: " + e);
+            System.err.println();
+            System.err.println("Failed: " + e);
             e.printStackTrace();
             Set<Throwable> exceptions = Sets.newHashSet(e);
             for (int i = 0; i < 10; i++) {
                 e = e.getCause();
                 if (e != null && exceptions.add(e)) {
-                    System.out.println("Reason: " + e);
+                    System.err.println("Reason: " + e);
                     e.printStackTrace();
                 } else {
                     break;
