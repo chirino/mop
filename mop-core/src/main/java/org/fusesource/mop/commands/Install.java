@@ -29,7 +29,6 @@ public class Install implements HasDefaultTargetType {
     @Option
     private boolean failIfNotExit = false;
 
-    // TODO use IoC to inject this???
     @Lookup
     private ArchiverManager archiverManager;
 
@@ -65,11 +64,8 @@ public class Install implements HasDefaultTargetType {
 
         try {
             UnArchiver unArchiver = archiverManager.getUnArchiver(source);
-
             unArchiver.setSourceFile(source);
-
             unArchiver.setDestDirectory(destDir);
-
             unArchiver.extract();
         }
         catch (ArchiverException e) {
