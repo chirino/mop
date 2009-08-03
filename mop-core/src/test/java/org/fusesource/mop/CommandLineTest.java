@@ -9,7 +9,6 @@ package org.fusesource.mop;
 
 import junit.framework.TestCase;
 import org.apache.maven.artifact.InvalidRepositoryException;
-import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 
 import java.util.List;
@@ -59,7 +58,7 @@ public class CommandLineTest extends TestCase {
     protected void doRun(String... args) {
         mavenRunner = new MOP() {
             @Override
-            protected List<File> resolveFiles(PlexusContainer container) throws ComponentLookupException, InvalidRepositoryException {
+            protected List<File> resolveFiles() throws ComponentLookupException, InvalidRepositoryException {
                 System.out.println("We would be doing something now :)");
                 return new ArrayList<File>();
             }

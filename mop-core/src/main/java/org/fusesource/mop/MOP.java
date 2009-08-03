@@ -26,6 +26,12 @@ import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
 import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.tools.cli.AbstractCli;
+import org.fusesource.mop.commands.Install;
+import org.fusesource.mop.support.CommandDefinitions;
+import org.fusesource.mop.support.CommandDefinition;
+import org.fusesource.mop.support.Logger;
+import org.fusesource.mop.support.ArtifactId;
+import org.fusesource.mop.support.MethodCommandDefinition;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -70,9 +76,10 @@ public class MOP extends AbstractCli {
 
     private ArrayList<ArtifactId> artifactIds;
     private List<String> reminingArgs;
-    private Map<String, Command> commands;
+    private Map<String, CommandDefinition> commands;
     private String defaultVersion = DEFAULT_VERSION;
     private String defaultType = DEFAULT_TYPE;
+    private PlexusContainer container;
 
     public static void main(String[] args) {
         org.fusesource.mop.MOP mavenRunner = new org.fusesource.mop.MOP();
@@ -103,7 +110,7 @@ public class MOP extends AbstractCli {
         HelpFormatter formatter = new HelpFormatter();
 
         StringBuilder buffer = new StringBuilder();
-        for (Command command : commands.values()) {
+        for (CommandDefinition command : commands.values()) {
             buffer.append(String.format("\n mop [options] %-20s %s", command.getName(), removeNewLines(command.getUsage())));
         }
         formatter.printHelp(buffer.toString(), "\nOptions:", options, "\n");
@@ -113,7 +120,7 @@ public class MOP extends AbstractCli {
         System.out.println();
         System.out.println("Commands:");
 
-        for (Map.Entry<String, Command> entry : commands.entrySet()) {
+        for (Map.Entry<String, CommandDefinition> entry : commands.entrySet()) {
             String description = removeNewLines(entry.getValue().getDescription());
             // lets remove any newlines
             System.out.printf("\t%-20s : %s\n", entry.getKey(), description);
@@ -121,7 +128,18 @@ public class MOP extends AbstractCli {
 
         System.out.println();
     }
+    /**
+     * Parses the artifacts removing them from the command line arguments
+     */
+    public List<File> parseArtifacts(LinkedList<String> argList) throws Exception {
+        artifactIds = parseArtifactList(argList);
+        reminingArgs = argList;
 
+        List<File> dependencies = resolveFiles();
+        return dependencies;
+    }
+
+                
     /**
      * Removes any newlines in the text so its one big line
      */
@@ -149,6 +167,7 @@ public class MOP extends AbstractCli {
     }
 
     public void invokePlexusComponent(CommandLine cli, PlexusContainer container) throws Exception {
+        this.container = container;
         // lets process the options
         Logger.debug = cli.hasOption('X');
         scope = cli.getOptionValue('s', "compile");
@@ -159,7 +178,7 @@ public class MOP extends AbstractCli {
         // now the remaining command line args
         try {
             LinkedList<String> argList = new LinkedList<String>(cli.getArgList());
-            processCommandLine(container, argList);
+            processCommandLine(argList);
         } catch (UsageException e) {
             displayHelp();
             throw e;
@@ -179,7 +198,7 @@ public class MOP extends AbstractCli {
         }
     }
 
-    protected void processCommandLine(PlexusContainer container, LinkedList<String> argList) throws Exception {
+    public void processCommandLine(LinkedList<String> argList) throws Exception {
         // lets reset values in case we chain things together...
         defaultVersion = DEFAULT_VERSION;
         defaultType = DEFAULT_TYPE;
@@ -208,15 +227,15 @@ public class MOP extends AbstractCli {
         } else if (command.equals("help")) {
             helpCommand(container, argList);
         } else {
-            tryDiscoverCommand(container, command, argList);
+            tryDiscoverCommand(command, argList);
         }
     }
 
-    protected void tryDiscoverCommand(PlexusContainer container, String commandText, LinkedList<String> argList) throws Exception {
+    protected void tryDiscoverCommand(String commandText, LinkedList<String> argList) throws Exception {
         checkCommandsLoaded();
 
         defaultVersion = DEFAULT_VERSION;
-        Command command = commands.get(commandText);
+        CommandDefinition command = commands.get(commandText);
         if (command == null) {
             // if we have used a colon then extract the version argument
             int idx = commandText.lastIndexOf(':');
@@ -229,32 +248,7 @@ public class MOP extends AbstractCli {
         if (command == null) {
             throw new UsageException("Unknown command '" + commandText + "'");
         }
-        // lets run the command!
-        LinkedList<String> artifacts = new LinkedList<String>();
-        LinkedList<String> args = new LinkedList<String>();
-        splitArgumentList(argList, artifacts, args);
-
-
-        boolean addedArgs = false;
-        LinkedList<String> newArguments = new LinkedList<String>();
-        for (String arg : command.getAliasArguments()) {
-            arg = replaceVariables(arg);
-            if (arg.equals(Command.ARTIFACTS_VARIABLE)) {
-                newArguments.addAll(artifacts);
-            } else if (arg.equals(Command.ARGS_VARIABLE)) {
-                newArguments.addAll(args);
-                addedArgs = true;
-            } else {
-                newArguments.add(arg);
-            }
-        }
-        if (!addedArgs) {
-            newArguments.addAll(args);
-        }
-
-        LOG.info("About to execute: " + newArguments);
-        processCommandLine(container, newArguments);
-
+        command.executeCommand(this, argList);
     }
 
     protected void helpCommand(PlexusContainer container, LinkedList<String> argList) {
@@ -264,7 +258,7 @@ public class MOP extends AbstractCli {
         }
         for (String commandName : argList) {
             checkCommandsLoaded();
-            Command command = commands.get(commandName);
+            CommandDefinition command = commands.get(commandName);
             if (command == null) {
                 System.out.println("No such command '" + command + "'");
             }
@@ -289,7 +283,7 @@ public class MOP extends AbstractCli {
         className = argList.removeFirst();
         reminingArgs = argList;
 
-        List<File> dependencies = resolveFiles(container);
+        List<File> dependencies = resolveFiles();
 
         execClass(dependencies);
     }
@@ -300,7 +294,7 @@ public class MOP extends AbstractCli {
         assertNotEmpty(argList);
         reminingArgs = argList;
 
-        List<File> dependencies = resolveFiles(container);
+        List<File> dependencies = resolveFiles();
         setClassNameFromExecutableJar(dependencies);
 
         execClass(dependencies);
@@ -322,11 +316,12 @@ public class MOP extends AbstractCli {
         artifactIds = parseArtifactList(argList);
         reminingArgs = argList;
 
-        List<File> dependencies = resolveFiles(container);
+        List<File> dependencies = resolveFiles();
         setClassNameFromExecutableJar(dependencies);
 
         runClass(dependencies);
     }
+
 
     protected void warCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
@@ -335,7 +330,7 @@ public class MOP extends AbstractCli {
         reminingArgs = argList;
 
         // lets default the artiact to WAR and then find all the files and pass them in as a command line argumnet
-        List<File> files = resolveFiles(container, new Predicate<Artifact>() {
+        List<File> files = resolveFiles(new Predicate<Artifact>() {
             public boolean apply(@Nullable Artifact artifact) {
                 String type = artifact.getType();
                 System.out.println("artifact: " + artifact + " has type: " + type);
@@ -355,7 +350,7 @@ public class MOP extends AbstractCli {
         }
 
         LOG.debug("About to run: " + newArgs);
-        processCommandLine(container, newArgs);
+        processCommandLine(newArgs);
     }
 
 
@@ -395,7 +390,7 @@ public class MOP extends AbstractCli {
         className = argList.removeFirst();
         reminingArgs = argList;
 
-        List<File> dependencies = resolveFiles(container);
+        List<File> dependencies = resolveFiles();
         runClass(dependencies);
     }
 
@@ -431,7 +426,7 @@ public class MOP extends AbstractCli {
         artifactIds = parseArtifactList(argList);
         assertNotEmpty(argList);
         File targetDir = new File(argList.removeFirst());
-        List<File> dependencies = resolveFiles(container);
+        List<File> dependencies = resolveFiles();
         if (!targetDir.isDirectory()) {
             throw new IOException("target is not a directroy: " + targetDir);
         }
@@ -469,14 +464,14 @@ public class MOP extends AbstractCli {
 
     private void classpathCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
-        List<File> dependencies = resolveFiles(container);
+        List<File> dependencies = resolveFiles();
         String classpath = classpath(dependencies);
         System.out.println(classpath);
     }
 
     private void echoCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
-        List<File> dependencies = resolveFiles(container);
+        List<File> dependencies = resolveFiles();
         String classpath = classpath(dependencies);
         System.out.print("java -cp \"" + classpath + "\"");
         for (String arg : argList) {
@@ -538,11 +533,11 @@ public class MOP extends AbstractCli {
 
     // Implementation methods
     //-------------------------------------------------------------------------
-    protected List<File> resolveFiles(PlexusContainer container) throws Exception {
-        return resolveFiles(container, Predicates.<Artifact>alwaysTrue());
+    protected List<File> resolveFiles() throws Exception {
+        return resolveFiles(Predicates.<Artifact>alwaysTrue());
     }
 
-    protected List<File> resolveFiles(PlexusContainer container, Predicate<Artifact> filter) throws Exception {
+    protected List<File> resolveFiles(Predicate<Artifact> filter) throws Exception {
         LinkedHashSet<Artifact> artifacts = resolveArtifacts(container);
 
         Predicate<Artifact> matchingArtifacts = Predicates.and(filter, new Predicate<Artifact>() {
@@ -645,7 +640,7 @@ public class MOP extends AbstractCli {
 
     void checkCommandsLoaded() {
         if (commands == null) {
-            commands = Commands.loadCommands(getClass().getClassLoader());
+            commands = CommandDefinitions.loadCommands(getClass().getClassLoader());
 
             registerDefaultCommands();
         }
@@ -665,6 +660,19 @@ public class MOP extends AbstractCli {
         registerDefaultCommand("war", "runs the given (typically war) archetypes in the jetty servlet engine via jetty-runner");
 
         registerDefaultCommand("help", "<command(s)>", "displays help summarising all of the commands or shows custom help for each command listed");
+
+        registerCommandMethods(new Install());
+    }
+
+    private void registerCommandMethods(Object commandObject) {
+        Class<? extends Object> type = commandObject.getClass();
+        Method[] methods = type.getMethods();
+        for (Method method : methods) {
+            Command commandAnnotation = method.getAnnotation(Command.class);
+            if (commandAnnotation != null) {
+                registerCommand(new MethodCommandDefinition(commandObject, method));
+            }
+        }
     }
 
 
@@ -673,43 +681,28 @@ public class MOP extends AbstractCli {
     }
 
     protected void registerDefaultCommand(String name, String usage, String description) {
-        commands.put(name, new Command(name, usage, description));
+        CommandDefinition commandDefinition = new CommandDefinition(name, usage, description);
+        registerCommand(commandDefinition);
     }
 
-    private String replaceVariables(String arg) {
-        return arg.replaceAll("\\$\\{version\\}", defaultVersion);
-    }
-
-    /**
-     * Lets split the argument list into the artifact(s) strings then the remaining arguments
-     */
-    private void splitArgumentList(LinkedList<String> argList, LinkedList<String> artifacts, LinkedList<String> remainingArgs) {
-        if (argList.isEmpty()) {
-            return;
-        }
-        artifacts.add(argList.removeFirst());
-        while (!argList.isEmpty()) {
-            String arg = argList.removeFirst();
-            if (isAnotherArtifactId(arg)) {
-                artifacts.add(arg);
-            } else {
-                remainingArgs.add(arg);
-                remainingArgs.addAll(argList);
-                break;
-            }
-        }
-
+    protected void registerCommand(CommandDefinition commandDefinition) {
+        commands.put(commandDefinition.getName(), commandDefinition);
     }
 
     /**
      * Returns true if this is an additional artifact string; typically if it begins with +
      */
-    protected boolean isAnotherArtifactId(String arg) {
+    public boolean isAnotherArtifactId(String arg) {
         return arg.startsWith("+");
     }
 
     // Properties
     //-------------------------------------------------------------------------
+
+    public PlexusContainer getContainer() {
+        return container;
+    }
+
     public String getClassName() {
         return className;
     }
@@ -764,5 +757,29 @@ public class MOP extends AbstractCli {
 
     public void setArtifactIds(ArrayList<ArtifactId> artifactIds) {
         this.artifactIds = artifactIds;
+    }
+
+    public String getDefaultType() {
+        return defaultType;
+    }
+
+    public void setDefaultType(String defaultType) {
+        this.defaultType = defaultType;
+    }
+
+    public String getDefaultVersion() {
+        return defaultVersion;
+    }
+
+    public void setDefaultVersion(String defaultVersion) {
+        this.defaultVersion = defaultVersion;
+    }
+
+    public boolean isOnline() {
+        return online;
+    }
+
+    public void setOnline(boolean online) {
+        this.online = online;
     }
 }
