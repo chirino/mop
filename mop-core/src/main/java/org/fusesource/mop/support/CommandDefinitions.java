@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Enumeration;
 import java.util.Map;
+import java.util.Properties;
 import java.util.TreeMap;
 
 
@@ -34,6 +35,7 @@ public class CommandDefinitions {
     private static final transient Log LOG = LogFactory.getLog(CommandDefinitions.class);
 
     public static final String COMMANDS_URI = "META-INF/services/mop/commands.xml";
+    public static final String COMMAND_PROPERTIES = "META-INF/services/mop.properties";
 
     /**
      * Loads all of the MRS commmands that can be found on the classpath in the given class loader
@@ -118,4 +120,72 @@ public class CommandDefinitions {
             append(buffer, doc.getChildNodes());
         }
     }
+
+
+    /**
+     * Looks on the classpath for all of the <code>META-INF/services/mop.properties</code> resource bundles and
+     * loads their usage/descriptions in.
+     */
+    public static void addCommandDescriptions(Map<String, CommandDefinition> commands, ClassLoader classLoader) {
+        Enumeration<URL> resources = null;
+        try {
+            resources = classLoader.getResources(COMMAND_PROPERTIES);
+        } catch (IOException e) {
+            LOG.debug("Could not load any MRS commands via " + COMMANDS_URI, e);
+        }
+        if (resources != null) {
+            while (resources.hasMoreElements()) {
+                URL url = resources.nextElement();
+                addCommandDescriptions(commands, url);
+            }
+        }
+
+
+    }
+
+    private static void addCommandDescriptions(Map<String, CommandDefinition> commands, URL url) {
+        Properties properties = new Properties();
+        try {
+            properties.load(url.openStream());
+        } catch (IOException e) {
+            LOG.warn("Failed to load MOP file: " + url);
+        }
+        for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+            String key = entry.getKey().toString();
+            String value = entry.getValue().toString();
+
+            String name = extractPostfix(key, ".usage");
+            if (name != null) {
+                CommandDefinition command = commands.get(name);
+                if (command == null) {
+                    missingCommand(name);
+                } else {
+                    command.setUsage(value);
+                }
+            } else {
+                name = extractPostfix(key, ".description");
+                CommandDefinition command = commands.get(name);
+                if (command == null) {
+                    missingCommand(name);
+                } else {
+                    command.setDescription(value);
+                }
+            }
+        }
+    }
+
+    /**
+     * Checks that a string ends with a given postfix, if it does then it is removed from the input string and returned
+     */
+    private static String extractPostfix(String key, String postfix) {
+        if (key.endsWith(postfix)) {
+            return key.substring(0, key.length() - postfix.length());
+        }
+        return null;
+    }
+
+    protected static void missingCommand(String name) {
+        LOG.warn("No command loaded for name: " + name);
+    }
+
 }

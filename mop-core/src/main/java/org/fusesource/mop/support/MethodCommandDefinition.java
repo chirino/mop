@@ -41,30 +41,7 @@ public class MethodCommandDefinition extends CommandDefinition {
     }
 
     protected static String createUsage(Method method) {
-        // TODO we could auto-create these from the types and the compile time names?
-
-        // lets look at the arguments and determine the description to use
-        StringBuilder builder = new StringBuilder();
-        boolean first = true;
-        Class<?>[] paramTypes = method.getParameterTypes();
-        for (Class<?> paramType : paramTypes) {
-            String name = paramType.getName();
-            if (first) {
-                first = false;
-                if (name.startsWith("java.util.List")) {
-                    // TODO dirty hack!
-                    builder.append("<artifact(s)>");
-                    continue;
-                }
-            } else {
-                builder.append(" ");
-
-                // TODO figure out how to turn the parameter names into a meaningful usage string
-                builder.append("<arg(s)>");
-                break;
-            }
-        }
-        return builder.toString();
+        return "<arg(s>";
     }
 
     public Object getBean() {
