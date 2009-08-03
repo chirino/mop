@@ -5,7 +5,7 @@
  * The software in this package is published under the terms of the AGPL license      *
  * a copy of which has been included with this distribution in the license.txt file.  *
  **************************************************************************************/
-package org.fusesource.mop;
+package org.fusesource.mop.support;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -30,8 +30,8 @@ import java.util.TreeMap;
  *
  * @version $Revision: 1.1 $
  */
-public class Commands {
-    private static final transient Log LOG = LogFactory.getLog(Commands.class);
+public class CommandDefinitions {
+    private static final transient Log LOG = LogFactory.getLog(CommandDefinitions.class);
 
     public static final String COMMANDS_URI = "META-INF/services/mop/commands.xml";
 
@@ -39,8 +39,8 @@ public class Commands {
      * Loads all of the MRS commmands that can be found on the classpath in the given class loader
      * using the {@link #COMMANDS_URI} URI
      */
-    public static Map<String, Command> loadCommands(ClassLoader classLoader) {
-        Map<String, Command> answer = new TreeMap<String, Command>();
+    public static Map<String, CommandDefinition> loadCommands(ClassLoader classLoader) {
+        Map<String, CommandDefinition> answer = new TreeMap<String, CommandDefinition>();
         Enumeration<URL> resources = null;
         try {
             resources = classLoader.getResources(COMMANDS_URI);
@@ -56,7 +56,7 @@ public class Commands {
         return answer;
     }
 
-    public static void loadCommands(Map<String, Command> commands, URL url) {
+    public static void loadCommands(Map<String, CommandDefinition> commands, URL url) {
         try {
             DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             Document document = documentBuilder.parse(url.openStream(), url.toString());
@@ -64,7 +64,7 @@ public class Commands {
             NodeList list = element.getElementsByTagName("command");
             for (int i = 0, size = list.getLength(); i < size; i++) {
                 Element commandElement = (Element) list.item(i);
-                Command command = loadCommand(commandElement);
+                CommandDefinition command = loadCommand(commandElement);
                 if (command != null) {
                     commands.put(command.getName(), command);
                 }
@@ -74,8 +74,8 @@ public class Commands {
         }
     }
 
-    private static Command loadCommand(Element element) {
-        Command answer = new Command();
+    private static CommandDefinition loadCommand(Element element) {
+        CommandDefinition answer = new CommandDefinition();
         answer.setName(element.getAttribute("name"));
         answer.setAlias(element.getAttribute("alias"));
         answer.setDescription(childElemenText(element, "description"));

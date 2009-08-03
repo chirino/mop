@@ -13,6 +13,8 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.fusesource.mop.support.CommandDefinitions;
+import org.fusesource.mop.support.CommandDefinition;
 
 /**
  * @version $Revision: 1.1 $
@@ -21,15 +23,15 @@ public class CommandsTestTest extends TestCase {
     private static final transient Log LOG = LogFactory.getLog(CommandsTestTest.class);
 
     public void testLoadingOfCommands() throws Exception {
-        Map<String, Command> map = Commands.loadCommands(getClass().getClassLoader());
+        Map<String, CommandDefinition> map = CommandDefinitions.loadCommands(getClass().getClassLoader());
         assertTrue("map should not be empty", !map.isEmpty());
 
         assertValidCommand(map, "war");
         assertValidCommand(map, "spring");
     }
 
-    private Command assertValidCommand(Map<String, Command> map, String name) {
-        Command command = map.get(name);
+    private CommandDefinition assertValidCommand(Map<String, CommandDefinition> map, String name) {
+        CommandDefinition command = map.get(name);
         assertNotNull("Should have a command called '" + name + "' in the command map: " + map, command);
         LOG.info("Found " + command);
 

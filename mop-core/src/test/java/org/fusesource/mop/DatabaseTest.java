@@ -15,6 +15,8 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.TreeSet;
 
+import org.fusesource.mop.support.Database;
+
 /**
  * @author chirino
  */

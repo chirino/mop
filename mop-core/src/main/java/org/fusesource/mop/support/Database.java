@@ -5,13 +5,14 @@
  * The software in this package is published under the terms of the AGPL license      *
  * a copy of which has been included with this distribution in the license.txt file.  *
  **************************************************************************************/
-package org.fusesource.mop;
+package org.fusesource.mop.support;
 
 import org.apache.kahadb.page.PageFile;
 import org.apache.kahadb.page.Transaction;
 import org.apache.kahadb.page.Page;
 import org.apache.kahadb.util.Marshaller;
 import org.apache.kahadb.index.BTreeIndex;
+import org.fusesource.mop.support.ArtifactId;
 
 import java.io.*;
 import java.util.Set;

@@ -5,13 +5,13 @@
  * The software in this package is published under the terms of the AGPL license      *
  * a copy of which has been included with this distribution in the license.txt file.  *
  **************************************************************************************/
-package org.fusesource.mop;
+package org.fusesource.mop.support;
 
 /**
  * @version $Revision: 1.1 $
  */
 public class Logger {
-    static boolean debug;
+    public static boolean debug;
 
     public static void debug(String message) {
         if (debug) {
