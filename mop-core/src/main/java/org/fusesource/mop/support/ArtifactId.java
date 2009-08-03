@@ -26,6 +26,9 @@ public class ArtifactId {
         version = defaultVersion;
         String parts[] = value.split(":");
         switch (parts.length) {
+            case 1:
+                artifactId = parts[0];
+                return true;
             case 2:
                 groupId = parts[0];
                 artifactId = parts[1];

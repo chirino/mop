@@ -23,15 +23,14 @@ import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
+import org.apache.maven.artifact.resolver.ResolutionListener;
 import org.apache.maven.repository.RepositorySystem;
+import org.apache.maven.wagon.events.TransferListener;
+import org.apache.maven.wagon.events.TransferEvent;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.tools.cli.AbstractCli;
 import org.fusesource.mop.commands.Install;
-import org.fusesource.mop.support.CommandDefinitions;
-import org.fusesource.mop.support.CommandDefinition;
-import org.fusesource.mop.support.Logger;
-import org.fusesource.mop.support.ArtifactId;
-import org.fusesource.mop.support.MethodCommandDefinition;
+import org.fusesource.mop.support.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -116,7 +115,7 @@ public class MOP extends AbstractCli {
         formatter.printHelp(buffer.toString(), "\nOptions:", options, "\n");
 
         System.out.println();
-        System.out.println("<artifact> is of the format: groupId:artifactId[[:type[:classifier]]:version] [+<artifact>]");
+        System.out.println("<artifact> is of the format: [groupId:]artifactId[[:type[:classifier]]:version] [+<artifact>]");
         System.out.println();
         System.out.println("Commands:");
 
@@ -577,45 +576,96 @@ public class MOP extends AbstractCli {
 
     private Set<Artifact> resolveArtifacts(PlexusContainer container, ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
+        Database database = new Database();
+        database.setDirectroy(new File(new File(localRepo), ".index"));
+        try {
 
-        RepositorySystem repositorySystem = (RepositorySystem) container.lookup(RepositorySystem.class);
-        Artifact artifact = repositorySystem.createArtifactWithClassifier(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType(), id.getClassifier());
-
-        ArtifactRepository localRepository = (localRepo != null)
-                ? repositorySystem.createLocalRepository(new File(localRepo))
-                : repositorySystem.createDefaultLocalRepository();
-
-        List<ArtifactRepository> remoteRepoList=new ArrayList<ArtifactRepository>();;
-        if( online ) {
-            addDefaultRemoteRepos(repositorySystem, remoteRepoList);
-            if (remoteRepos != null) {
-                int counter = 1;
-                ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-                DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
-                for (String remoteRepo : remoteRepos) {
-                    String repoid = "repo" + (counter++);
-                    Logger.debug("Adding repository with id: " + id + " url: " + remoteRepo);
-                    ArtifactRepository repo = repositorySystem.createArtifactRepository(repoid, remoteRepo, layout, repositoryPolicy, repositoryPolicy);
-                    remoteRepoList.add(repo);
+            RepositorySystem repositorySystem = (RepositorySystem) container.lookup(RepositorySystem.class);
+            List<ArtifactRepository> remoteRepoList=new ArrayList<ArtifactRepository>();
+            if( online ) {
+                addDefaultRemoteRepos(repositorySystem, remoteRepoList);
+                if (remoteRepos != null) {
+                    int counter = 1;
+                    ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
+                    DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
+                    for (String remoteRepo : remoteRepos) {
+                        String repoid = "repo" + (counter++);
+                        Logger.debug("Adding repository with id: " + id + " url: " + remoteRepo);
+                        ArtifactRepository repo = repositorySystem.createArtifactRepository(repoid, remoteRepo, layout, repositoryPolicy, repositoryPolicy);
+                        remoteRepoList.add(repo);
+                    }
                 }
+                remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
             }
-            remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
+
+            ArtifactRepository localRepository = (localRepo != null)
+                    ? repositorySystem.createLocalRepository(new File(localRepo))
+                    : repositorySystem.createDefaultLocalRepository();
+
+
+            if( online ) {
+                database.open(false);
+
+                // Keep track that we are trying an install..
+                // If an install dies midway.. the repo will have partlly installed dependencies...
+                // we may want to continue the install??
+                database.beginInstall(id.toString());
+
+            } else {
+                database.open(true);
+
+                // Makes groupId optional.. we look it up in the database.
+                if( id.getGroupId()==null ) {
+                    Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
+                    if( rc.isEmpty() ) {
+                        throw new Exception("No artifacts with artifact id '"+id.getArtifactId()+"' are locally installed.");
+                    }
+                    if( rc.size() > 1 ) {
+                        System.out.println("Please use one of the following:");
+                        for (String s : rc.keySet()) {
+                            System.out.println("   "+s+":"+id.getArtifactId());
+                        }
+                        throw new Exception("Multiple groups with artifact id '"+id.getArtifactId()+"' are locally installed.");
+                    }
+                    id.setGroupId(rc.keySet().iterator().next());
+                }
+
+
+                // We could auto figure out the classifier/type/version too..
+            }
+
+            Artifact artifact = repositorySystem.createArtifactWithClassifier(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType(), id.getClassifier());
+            ArtifactResolutionRequest request = new ArtifactResolutionRequest()
+                    .setArtifact(artifact)
+                    .setResolveRoot(true)
+                    .setResolveTransitively(true)
+                    .setLocalRepository(localRepository)
+                    .setRemoteRepostories(remoteRepoList);
+
+            ArtifactResolutionResult result = repositorySystem.resolve(request);
+
+            List<Artifact> list = result.getMissingArtifacts();
+            if (!list.isEmpty()) {
+                throw new Exception("The following artifacts could not be downloaded: " + list);
+            }
+
+            Set<Artifact> rc = result.getArtifacts();
+            if( online ) {
+                // Have the DB index the installed the artifacts.
+                LinkedHashSet<String> installed = new LinkedHashSet<String>();
+                for (Artifact a : rc) {
+                    installed.add(a.getId());
+                }
+                database.install(installed);
+            }
+            return rc;
+
+        } finally {
+            if( online ) {
+                database.installDone();
+            }
+            database.close();
         }
-
-        ArtifactResolutionRequest request = new ArtifactResolutionRequest()
-                .setArtifact(artifact)
-                .setResolveRoot(true)
-                .setResolveTransitively(true)
-                .setLocalRepository(localRepository)
-                .setRemoteRepostories(remoteRepoList);
-
-        ArtifactResolutionResult result = repositorySystem.resolve(request);
-
-        List<Artifact> list = result.getMissingArtifacts();
-        if (!list.isEmpty()) {
-            throw new Exception("The following artifacts could not be downloaded: " + list);
-        }
-        return result.getArtifacts();
     }
 
     /**
