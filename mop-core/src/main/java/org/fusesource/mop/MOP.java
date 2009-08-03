@@ -722,6 +722,8 @@ public class MOP extends AbstractCli {
             commands = CommandDefinitions.loadCommands(getClass().getClassLoader());
 
             registerDefaultCommands();
+
+            CommandDefinitions.addCommandDescriptions(commands, getClass().getClassLoader());
         }
     }
 
