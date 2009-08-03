@@ -11,11 +11,13 @@ import org.apache.kahadb.page.PageFile;
 import org.apache.kahadb.page.Transaction;
 import org.apache.kahadb.page.Page;
 import org.apache.kahadb.util.Marshaller;
+import org.apache.kahadb.util.LockFile;
 import org.apache.kahadb.index.BTreeIndex;
 import org.fusesource.mop.support.ArtifactId;
 
 import java.io.*;
 import java.util.*;
+import java.nio.channels.FileChannel;
 
 /**
  * @author chirino
@@ -25,9 +27,12 @@ public class Database {
     private PageFile pageFile;
     private boolean readOnly;
     private File directroy;
+    private LockFile lock;
 
     public void delete() throws IOException {
-        getPageFile().delete();
+        getReadOnlyFile().delete();
+        getUpdateFile().delete();
+        getUpdateRedoFile().delete();
     }
 
     public void open(boolean readOnly) throws IOException {
@@ -35,33 +40,38 @@ public class Database {
             throw new IllegalStateException("database allready opened.");
         }
         this.readOnly = readOnly;
-
-        boolean initializationNeeded = !getPageFile().getFile().exists();
-        getPageFile().load();
-
-        if (initializationNeeded) {
-            getPageFile().tx().execute(new Transaction.Closure<IOException>() {
-                public void execute(Transaction tx) throws IOException {
-                    RootEntity root = new RootEntity();
-                    root.create(tx);
-                }
-            });
+        if (!getReadOnlyFile().exists()) {
+            initialize();
         }
-    }
-
-    private PageFile getPageFile() {
-        if (pageFile == null) {
+        if( readOnly ) {
             pageFile = new PageFile(directroy, "index");
-            pageFile.setPageCacheSize(1024);
+            pageFile.setEnableWriteThread(false);
+            pageFile.setEnableRecoveryFile(false);
+        } else {
+            lock = new LockFile(getUpdateFile(), false);
+            lock.lock();
+            pageFile = new PageFile(directroy, "update");
+            pageFile.setEnableWriteThread(false);
+            pageFile.setEnableRecoveryFile(true);
+
         }
-        return pageFile;
+        pageFile.load();
     }
+
 
     public void close() throws IOException {
-        assertOpen();
-        pageFile.flush();
-        pageFile.unload();
-        pageFile=null;
+        try {
+            assertOpen();
+            pageFile.flush();
+            pageFile.unload();
+            pageFile=null;
+        } finally {
+            if( !readOnly ) {
+                copy(getUpdateFile(), getReadOnlyFile());
+                lock.unlock();
+                lock=null;
+            }
+        }
     }
 
     public void beginInstall(final String id) throws IOException {
@@ -285,6 +295,65 @@ public class Database {
         if (pageFile==null || !pageFile.isLoaded()) {
             throw new IllegalStateException("database not opened.");
         }
+    }
+
+    private void initialize() throws IOException {
+        lock = new LockFile(getUpdateFile(), false);
+        lock.lock();
+        try {
+            // Now that we have the lock.. lets check again..
+            if (getReadOnlyFile().exists()) {
+                return;
+            }
+
+            pageFile = new PageFile(directroy, "update");
+            pageFile.setEnableWriteThread(false);
+            pageFile.setEnableRecoveryFile(true);
+            pageFile.load();
+            pageFile.tx().execute(new Transaction.Closure<IOException>() {
+                public void execute(Transaction tx) throws IOException {
+                    RootEntity root = new RootEntity();
+                    root.create(tx);
+                }
+            });
+            pageFile.flush();;
+            pageFile.unload();
+            pageFile=null;
+
+            copy(getUpdateFile(), getReadOnlyFile());
+        } finally {
+            lock.unlock();
+            lock=null;
+        }
+    }
+
+    static private void copy(File from, File to) throws IOException {
+        to.delete();
+        FileChannel in = new FileInputStream(from).getChannel();
+        try {
+
+            File tmp = File.createTempFile(to.getName(), ".part", to.getParentFile());
+            FileChannel out = new FileOutputStream(tmp).getChannel();
+            try {
+                out.transferFrom(in, 0, from.length());
+            } finally {
+                out.close();
+            }
+
+            tmp.renameTo(to);
+        } finally {
+            in.close();
+        }
+    }
+
+    private File getUpdateFile() {
+        return new File(directroy, "update.data");
+    }
+    private File getUpdateRedoFile() {
+        return new File(directroy, "update.redo");
+    }
+    private File getReadOnlyFile() {
+        return new File(directroy, "index.data");
     }
 
     ///////////////////////////////////////////////////////////////////

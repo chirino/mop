@@ -49,7 +49,7 @@ public class DatabaseTest extends TestCase {
 
         database = new Database();
         database.setDirectroy(directroy);
-        database.open(false);
+        database.open(true);
         Set<String> rc = new TreeSet(database.findByArtifactId("test"));
 
         artifacts = new LinkedHashSet<String>();

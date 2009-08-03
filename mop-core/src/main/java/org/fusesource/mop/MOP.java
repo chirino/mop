@@ -175,8 +175,9 @@ public class MOP extends AbstractCli {
         scope = cli.getOptionValue('s', "compile");
         localRepo = cli.getOptionValue('l');
         remoteRepos = cli.getOptionValues('r');
-        online = cli.hasOption('o');
-<<<<<<< HEAD:mop-core/src/main/java/org/fusesource/mop/MOP.java
+        online = !cli.hasOption('o');
+
+        online = !online;
 
         if (localRepo == null) {
             if (System.getProperty("mop.base") != null) {
@@ -185,14 +186,7 @@ public class MOP extends AbstractCli {
                 localRepo = ".mop" + File.separator + "repository";
                 LOG.warn("No mop.base property defined so setting local repo to: " + localRepo);
             }
-=======
-        online = !online;
-        
-        if ( localRepo == null && System.getProperty("mop.base")!=null ) {
-            localRepo = System.getProperty("mop.base") + File.separator + "repository";
->>>>>>> 3879473b04307d30d96c1bbdc2b9692e405eb338:mop-core/src/main/java/org/fusesource/mop/MOP.java
         }
-
 
         // now the remaining command line args
         try {
