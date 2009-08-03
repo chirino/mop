@@ -57,6 +57,28 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>apt-maven-plugin</artifactId>
+        <configuration>
+          <factory>org.fusesource.mop.apt.MopAnnotationProcessorFactory</factory>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>${pom.groupId}</groupId>
+            <artifactId>mop-apt</artifactId>
+            <version>${pom.version}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <goals>
+              <goal>process</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>1.2.1</version>
