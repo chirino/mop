@@ -15,6 +15,7 @@ import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.fusesource.mop.Option;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
+import org.fusesource.mop.Lookup;
 import org.fusesource.mop.support.HasDefaultTargetType;
 
 import java.io.File;
@@ -29,7 +30,8 @@ public class Install implements HasDefaultTargetType {
     private boolean failIfNotExit = false;
 
     // TODO use IoC to inject this???
-    private ArchiverManager archiverManager = new DefaultArchiverManager();
+    @Lookup
+    private ArchiverManager archiverManager;
 
     @Override
     public String toString() {
@@ -38,7 +40,7 @@ public class Install implements HasDefaultTargetType {
 
     public String getDefaultType() {
         String defaultType = "tar.gz";
-        String osName = System.getProperty("system.os.name", "NO OS NAME!!");
+        String osName = System.getProperty("os.name", "NO OS NAME!!");
         if (osName.contains("Windows")) {
             defaultType = "zip";
         }

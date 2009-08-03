@@ -7,17 +7,18 @@
  **************************************************************************************/
 package org.fusesource.mop.support;
 
-import org.fusesource.mop.Description;
-import org.fusesource.mop.MOP;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.fusesource.mop.Description;
+import org.fusesource.mop.Lookup;
+import org.fusesource.mop.MOP;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Arrays;
 
 /**
  * @version $Revision: 1.1 $
@@ -76,15 +77,33 @@ public class MethodCommandDefinition extends CommandDefinition {
 
     @Override
     public void executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
+        // lets inject fields
+        for (Class<? extends Object> beanType = bean.getClass(); beanType != Object.class; beanType = beanType.getSuperclass()) {
+            Field[] fields = beanType.getDeclaredFields();
+            for (Field field : fields) {
+                Lookup lookup = field.getAnnotation(Lookup.class);
+                if (lookup != null) {
+                    Class<?> type = field.getType();
+                    Object value = mop.getContainer().lookup(type);
+                    if (value != null) {
+                        field.setAccessible(true);
+                        field.set(bean, value);
+                    }
+                }
+            }
+        }
+
         Class<?>[] paramTypes = method.getParameterTypes();
         int size = paramTypes.length;
         Object[] args = new Object[size];
         for (int i = 0; i < size; i++) {
+            if (argList.isEmpty()) {
+                throw new Exception("missing argument!");
+            }
             Class<?> paramType = paramTypes[i];
             if (MOP.class.isAssignableFrom(paramType)) {
                 args[i] = mop;
-            }
-            else if (Iterable.class.isAssignableFrom(paramType)) {
+            } else if (Iterable.class.isAssignableFrom(paramType)) {
                 // lets assume its the files
                 List<File> list = mop.parseArtifacts(argList);
                 args[i] = list;
