@@ -165,7 +165,8 @@ public class MOP extends AbstractCli {
         localRepo = cli.getOptionValue('l');
         remoteRepos = cli.getOptionValues('r');
         online = cli.hasOption('o');
-
+        online = !online;
+        
         if ( localRepo == null && System.getProperty("mop.base")!=null ) {
             localRepo = System.getProperty("mop.base") + File.separator + "repository";
         }
