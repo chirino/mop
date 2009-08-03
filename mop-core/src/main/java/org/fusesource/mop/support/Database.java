@@ -15,8 +15,7 @@ import org.apache.kahadb.index.BTreeIndex;
 import org.fusesource.mop.support.ArtifactId;
 
 import java.io.*;
-import java.util.Set;
-import java.util.HashSet;
+import java.util.*;
 
 /**
  * @author chirino
@@ -65,28 +64,68 @@ public class Database {
         pageFile=null;
     }
 
-    public void install(final Set<String> dependencies) throws IOException {
+    public void beginInstall(final String id) throws IOException {
         assertOpen();
         pageFile.tx().execute(new Transaction.Closure<IOException>() {
             public void execute(Transaction tx) throws IOException {
-                RootEntity root = tx.load(0, RootEntity.MARSHALLER).get();
-                BTreeIndex<String, String> artifacts = root.artifacts.get(tx);
+                RootEntity root = RootEntity.load(tx);
+                root.installingArtifact = id;
+                root.tx_sequence++;
+                root.store(tx);
+            }
+        });
+        pageFile.flush();
+    }
+
+    public void installDone() {
+        try {
+            assertOpen();
+            pageFile.tx().execute(new Transaction.Closure<IOException>() {
+                public void execute(Transaction tx) throws IOException {
+                    RootEntity root = RootEntity.load(tx);
+                    root.installingArtifact = null;
+                    root.tx_sequence++;
+                    root.store(tx);
+                }
+            });
+            pageFile.flush();
+        } catch (Throwable e) {
+        }
+    }
+
+    public void install(final LinkedHashSet<String> artifiactIds) throws IOException {
+        if( artifiactIds.isEmpty() ) {
+            throw new IllegalArgumentException("artifiactIds cannot be empty");
+        }
+        final String mainArtifact = artifiactIds.iterator().next();
+
+        assertOpen();
+        pageFile.tx().execute(new Transaction.Closure<IOException>() {
+            public void execute(Transaction tx) throws IOException {
+                RootEntity root = RootEntity.load(tx);
+                BTreeIndex<String, Integer> artifacts = root.artifacts.get(tx);
                 BTreeIndex<String, HashSet<String>> artifactIdIndex = root.artifactIdIndex.get(tx);
                 BTreeIndex<String, HashSet<String>> typeIndex = root.typeIndex.get(tx);
+                BTreeIndex<String, HashSet<String>> explicityInstalledArtifacts = root.explicityInstalledArtifacts.get(tx);
 
-                for (String id : dependencies) {
+                explicityInstalledArtifacts.put(tx, mainArtifact, new LinkedHashSet<String>(artifiactIds));
+                for (String id : artifiactIds) {
                     ArtifactId a = new ArtifactId();
                     if (!a.strictParse(id)) {
                         throw new IOException("Invalid artifact id: " + id);
                     }
-                    String rc = artifacts.get(tx, id);
+                    Integer rc = artifacts.get(tx, id);
                     if (rc == null) {
-                        artifacts.put(tx, id, id);
+                        artifacts.put(tx, id, 1);
                         indexAdd(tx, artifactIdIndex, id, a.getArtifactId());
                         indexAdd(tx, typeIndex, id, a.getType());
+                    } else {
+                        artifacts.put(tx, id, rc+1);
                     }
                 }
 
+                root.tx_sequence++;
+                root.store(tx);
             }
         });
     }
@@ -95,7 +134,7 @@ public class Database {
         assertOpen();
         return pageFile.tx().execute(new Transaction.CallableClosure<Set<String>, IOException>() {
             public Set<String> execute(Transaction tx) throws IOException {
-                RootEntity root = tx.load(0, RootEntity.MARSHALLER).get();
+                RootEntity root = RootEntity.load(tx);
                 BTreeIndex<String, HashSet<String>> artifactIdIndex = root.artifactIdIndex.get(tx);
                 HashSet<String> set = artifactIdIndex.get(tx, artifactId);
                 return set == null ? new HashSet() : new HashSet(set);
@@ -103,17 +142,70 @@ public class Database {
         });
     }
 
+
+    public static Map<String, Set<String>> groupByGroupId(Set<String> values) {
+        Map<String, Set<String>> rc = new LinkedHashMap<String, Set<String>>();
+        for (String value : values) {
+            ArtifactId id = new ArtifactId();
+            id.strictParse(value);
+            Set<String> t = rc.get(id.getGroupId());
+            if( t == null ) {
+                t = new LinkedHashSet(5);
+                rc.put(id.getGroupId(), t);
+            }
+            t.add(value);
+        }
+        return rc;
+    }
+
     public Set<String> findByType(final String type) throws IOException {
         assertOpen();
         return pageFile.tx().execute(new Transaction.CallableClosure<Set<String>, IOException>() {
             public Set<String> execute(Transaction tx) throws IOException {
-                RootEntity root = tx.load(0, RootEntity.MARSHALLER).get();
+                RootEntity root = RootEntity.load(tx);
                 BTreeIndex<String, HashSet<String>> typeIndex = root.typeIndex.get(tx);
                 HashSet<String> set = typeIndex.get(tx, type);
                 return set == null ? new HashSet() : new HashSet(set);
             }
         });
     }
+
+
+    public TreeSet<String> listAll() throws IOException {
+        assertOpen();
+        return pageFile.tx().execute(new Transaction.CallableClosure<TreeSet<String>, IOException>() {
+            public TreeSet<String> execute(Transaction tx) throws IOException {
+                RootEntity root = RootEntity.load(tx);
+                BTreeIndex<String, Integer> artifacts = root.artifacts.get(tx);
+                Iterator<Map.Entry<String,Integer>> i = artifacts.iterator(tx);
+                TreeSet<String> rc = new TreeSet<String>(); 
+                while (i.hasNext()) {
+                    Map.Entry<String,Integer> entry =  i.next();
+                    rc.add(entry.getKey());
+                }
+                return rc;
+            }
+        });
+    }
+
+    public TreeSet<String> listInstalled() throws IOException {
+        assertOpen();
+        return pageFile.tx().execute(new Transaction.CallableClosure<TreeSet<String>, IOException>() {
+            public TreeSet<String> execute(Transaction tx) throws IOException {
+                RootEntity root = RootEntity.load(tx);
+                BTreeIndex<String, HashSet<String>> explicityInstalledArtifacts = root.explicityInstalledArtifacts.get(tx);
+                Iterator<Map.Entry<String, HashSet<String>>> i = explicityInstalledArtifacts.iterator(tx);
+
+                TreeSet<String> rc = new TreeSet<String>();
+                while (i.hasNext()) {
+                    Map.Entry<String, HashSet<String>> entry =  i.next();
+                    rc.add(entry.getKey());
+                }
+                return rc;
+            }
+        });
+    }
+
 
     ///////////////////////////////////////////////////////////////////
     // helper methods
@@ -152,8 +244,10 @@ public class Database {
     static private class RootEntity implements Serializable {
         static Marshaller<RootEntity> MARSHALLER = new ObjectMarshaller<RootEntity>();
 
+        protected String installingArtifact;
+        protected long tx_sequence;
         protected BTreeIndexReference<String, HashSet<String>> explicityInstalledArtifacts = new BTreeIndexReference<String, HashSet<String>>();
-        protected BTreeIndexReference<String, String> artifacts = new BTreeIndexReference<String, String>();
+        protected BTreeIndexReference<String, Integer> artifacts = new BTreeIndexReference<String, Integer>();
         protected BTreeIndexReference<String, HashSet<String>> artifactIdIndex = new BTreeIndexReference<String, HashSet<String>>();
         protected BTreeIndexReference<String, HashSet<String>> typeIndex = new BTreeIndexReference<String, HashSet<String>>();
 
@@ -171,6 +265,17 @@ public class Database {
 
             page.set(this);
             tx.store(page, MARSHALLER, true);
+        }
+
+        static RootEntity load(Transaction tx) throws IOException {
+            Page<RootEntity> rootPage = tx.load(0, RootEntity.MARSHALLER);
+            return rootPage.get();
+        }
+
+        public void store(Transaction tx) throws IOException {
+            Page<RootEntity> rootPage = tx.load(0, RootEntity.MARSHALLER);
+            rootPage.set(this);
+            tx.store(rootPage, RootEntity.MARSHALLER, true);
         }
     }
     

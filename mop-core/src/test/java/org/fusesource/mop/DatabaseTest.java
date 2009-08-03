@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.TreeSet;
+import java.util.LinkedHashSet;
 
 import org.fusesource.mop.support.Database;
 
@@ -30,7 +31,7 @@ public class DatabaseTest extends TestCase {
         database.delete();
 
         database.open(false);
-        Set<String> artifacts = new HashSet<String>();
+        LinkedHashSet<String> artifacts = new LinkedHashSet<String>();
         artifacts.add("org.fusesource.mop:test:jar:1.0");
         artifacts.add("org.fusesource.mop:foo:jar:1.0");
         database.install(artifacts);
@@ -39,7 +40,7 @@ public class DatabaseTest extends TestCase {
         database = new Database();
         database.setDirectroy(directroy);
         database.open(false);
-        artifacts = new HashSet<String>();
+        artifacts = new LinkedHashSet<String>();
         artifacts.add("org.test:test:jar:1.0");
         artifacts.add("org.test:other:jar:1.0");
         database.install(artifacts);
@@ -51,7 +52,7 @@ public class DatabaseTest extends TestCase {
         database.open(false);
         Set<String> rc = new TreeSet(database.findByArtifactId("test"));
 
-        artifacts = new TreeSet<String>();
+        artifacts = new LinkedHashSet<String>();
         artifacts.add("org.fusesource.mop:test:jar:1.0");
         artifacts.add("org.test:test:jar:1.0");
         

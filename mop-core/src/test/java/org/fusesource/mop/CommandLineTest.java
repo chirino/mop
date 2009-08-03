@@ -33,7 +33,7 @@ public class CommandLineTest extends TestCase {
     }
 
     public void testClassPathCommand() {
-        int rc = new MOP().execute(new String[]{"-o", "-l", "target/test-repo", "classpath", "javax.servlet:servlet-api:2.3", className});
+        int rc = new MOP().execute(new String[]{"-o", "-l", "target/test-repo", "classpath", "javax.servlet:servlet-api:2.3"});
         assertEquals(0, rc);
     }
 
@@ -42,6 +42,16 @@ public class CommandLineTest extends TestCase {
         assertEquals(0, rc);
     }
 
+    public void testAritfactLookup() {
+        // Online version
+        int rc = new MOP().execute(new String[]{"-o", "-l", "target/test-repo", "classpath", "commons-logging:commons-logging:1.1.1"});
+        assertEquals(0, rc);
+        // Offline version
+        rc = new MOP().execute(new String[]{ "-l", "target/test-repo", "classpath", "commons-logging"});
+        assertEquals(0, rc);
+    }
+    
+    
     public void testUsingLatestRelease() {
         doRun("-X", "exec", groupId+":"+artifactId, className, arg0, arg1);
     }
