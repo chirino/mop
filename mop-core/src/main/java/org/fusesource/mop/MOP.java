@@ -47,12 +47,7 @@ import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -181,6 +176,7 @@ public class MOP extends AbstractCli {
         localRepo = cli.getOptionValue('l');
         remoteRepos = cli.getOptionValues('r');
         online = cli.hasOption('o');
+<<<<<<< HEAD:mop-core/src/main/java/org/fusesource/mop/MOP.java
 
         if (localRepo == null) {
             if (System.getProperty("mop.base") != null) {
@@ -189,6 +185,12 @@ public class MOP extends AbstractCli {
                 localRepo = ".mop" + File.separator + "repository";
                 LOG.warn("No mop.base property defined so setting local repo to: " + localRepo);
             }
+=======
+        online = !online;
+        
+        if ( localRepo == null && System.getProperty("mop.base")!=null ) {
+            localRepo = System.getProperty("mop.base") + File.separator + "repository";
+>>>>>>> 3879473b04307d30d96c1bbdc2b9692e405eb338:mop-core/src/main/java/org/fusesource/mop/MOP.java
         }
 
 
@@ -246,11 +248,55 @@ public class MOP extends AbstractCli {
             helpCommand(container, argList);
         } else if (command.equals("list")) {
             listCommand(argList);
+        } else if (command.equals("uninstall")) {
+            uninstallCommand(argList);
         } else {
             tryDiscoverCommand(command, argList);
         }
     }
+    
+    private void uninstallCommand(LinkedList<String> argList) throws UsageException, IOException {
+        artifactIds = parseArtifactList(argList);
 
+        Database database = new Database();
+        database.setDirectroy(new File(new File(localRepo), ".index"));
+        database.open(true);
+
+        StringBuilder error = new StringBuilder();
+        try {
+
+            for (ArtifactId artifactId : artifactIds) {
+                TreeSet<String> deps = database.listDependenants(artifactId.toString());
+                if( deps==null ) {
+                    error.append(artifactId.toString()+": is not installed.\n");
+                } else if( !deps.isEmpty() ) {
+                    error.append(artifactId.toString()+": is used by\n");
+                    for (String dep : deps) {
+                        error.append("  * "+dep+"\n");
+                    }
+                }
+            }
+
+            if( error.length()!=0 ) {
+                System.out.println(error);
+                return;
+            }
+
+            for (ArtifactId artifactId : artifactIds) {
+                TreeSet<String> unused = database.uninstall(artifactId.toString());
+                System.out.println("TODO:");
+                for (String dep : unused) {
+                    System.out.println(" rm "+dep);
+                    // TODO: need to remove these deps from the file system.
+                }
+            }
+
+        } finally {
+            database.close();
+        }
+
+    }
+    
     private void listCommand(LinkedList<String> argList) throws UsageException, IOException {
         String type = "installed";
         if (!argList.isEmpty()) {

@@ -103,7 +103,7 @@ public class Database {
         pageFile.tx().execute(new Transaction.Closure<IOException>() {
             public void execute(Transaction tx) throws IOException {
                 RootEntity root = RootEntity.load(tx);
-                BTreeIndex<String, Integer> artifacts = root.artifacts.get(tx);
+                BTreeIndex<String, HashSet<String>> artifacts = root.artifacts.get(tx);
                 BTreeIndex<String, HashSet<String>> artifactIdIndex = root.artifactIdIndex.get(tx);
                 BTreeIndex<String, HashSet<String>> typeIndex = root.typeIndex.get(tx);
                 BTreeIndex<String, HashSet<String>> explicityInstalledArtifacts = root.explicityInstalledArtifacts.get(tx);
@@ -114,13 +114,16 @@ public class Database {
                     if (!a.strictParse(id)) {
                         throw new IOException("Invalid artifact id: " + id);
                     }
-                    Integer rc = artifacts.get(tx, id);
+                    HashSet<String> rc = artifacts.get(tx, id);
                     if (rc == null) {
-                        artifacts.put(tx, id, 1);
+                        rc = new HashSet<String>();
+                        rc.add(mainArtifact);
+                        artifacts.put(tx, id, rc);
                         indexAdd(tx, artifactIdIndex, id, a.getArtifactId());
                         indexAdd(tx, typeIndex, id, a.getType());
                     } else {
-                        artifacts.put(tx, id, rc+1);
+                        rc.add(mainArtifact);
+                        artifacts.put(tx, id, rc);
                     }
                 }
 
@@ -129,6 +132,46 @@ public class Database {
             }
         });
     }
+
+    public TreeSet<String> uninstall(final String mainArtifact) throws IOException {
+        assertOpen();
+        return pageFile.tx().execute(new Transaction.CallableClosure<TreeSet<String>, IOException>() {
+            public TreeSet<String> execute(Transaction tx) throws IOException {
+                RootEntity root = RootEntity.load(tx);
+                BTreeIndex<String, HashSet<String>> artifacts = root.artifacts.get(tx);
+                BTreeIndex<String, HashSet<String>> artifactIdIndex = root.artifactIdIndex.get(tx);
+                BTreeIndex<String, HashSet<String>> typeIndex = root.typeIndex.get(tx);
+                BTreeIndex<String, HashSet<String>> explicityInstalledArtifacts = root.explicityInstalledArtifacts.get(tx);
+
+                TreeSet<String> unused = new TreeSet<String>();
+                HashSet<String> artifiactIds = explicityInstalledArtifacts.remove(tx, mainArtifact);
+                for (String id : artifiactIds) {
+                    ArtifactId a = new ArtifactId();
+                    if (!a.strictParse(id)) {
+                        throw new IOException("Invalid artifact id: " + id);
+                    }
+                    HashSet<String> rc = artifacts.get(tx, id);
+                    rc.remove(mainArtifact);
+                    if( rc.isEmpty() ) {
+                        unused.add(id);
+                        artifacts.remove(tx, id);
+                        indexRemove(tx, artifactIdIndex, id,  a.getArtifactId());
+                        indexRemove(tx, typeIndex, id,  a.getType());
+                    } else {
+                        artifacts.put(tx, id, rc);
+                    }
+                }
+
+                root.tx_sequence++;
+                root.store(tx);
+                return unused;
+            }
+        });
+    }
+
+    private void indexRemove(Transaction tx, BTreeIndex<String, HashSet<String>> artifactIdIndex, String id, String artifactId) {
+    }
+
 
     public Set<String> findByArtifactId(final String artifactId) throws IOException {
         assertOpen();
@@ -176,11 +219,11 @@ public class Database {
         return pageFile.tx().execute(new Transaction.CallableClosure<TreeSet<String>, IOException>() {
             public TreeSet<String> execute(Transaction tx) throws IOException {
                 RootEntity root = RootEntity.load(tx);
-                BTreeIndex<String, Integer> artifacts = root.artifacts.get(tx);
-                Iterator<Map.Entry<String,Integer>> i = artifacts.iterator(tx);
+                BTreeIndex<String, HashSet<String>> artifacts = root.artifacts.get(tx);
+                Iterator<Map.Entry<String,HashSet<String>>> i = artifacts.iterator(tx);
                 TreeSet<String> rc = new TreeSet<String>(); 
                 while (i.hasNext()) {
-                    Map.Entry<String,Integer> entry =  i.next();
+                    Map.Entry<String,HashSet<String>> entry =  i.next();
                     rc.add(entry.getKey());
                 }
                 return rc;
@@ -201,6 +244,25 @@ public class Database {
                     Map.Entry<String, HashSet<String>> entry =  i.next();
                     rc.add(entry.getKey());
                 }
+                return rc;
+            }
+        });
+    }
+
+    public TreeSet<String> listDependenants(final String artifact) throws IOException {
+        assertOpen();
+        return pageFile.tx().execute(new Transaction.CallableClosure<TreeSet<String>, IOException>() {
+            public TreeSet<String> execute(Transaction tx) throws IOException {
+                RootEntity root = RootEntity.load(tx);
+                BTreeIndex<String, HashSet<String>> artifacts = root.artifacts.get(tx);
+                HashSet<String> deps = artifacts.get(tx, artifact);
+                if( deps==null ) {
+                    return null;
+                }
+                TreeSet<String> rc = new TreeSet<String>();
+
+                rc.addAll(deps);
+                rc.remove(artifact);
                 return rc;
             }
         });
@@ -246,9 +308,14 @@ public class Database {
 
         protected String installingArtifact;
         protected long tx_sequence;
+
+        // This is map of the artifcact -> set of it's transitive dependencies.
         protected BTreeIndexReference<String, HashSet<String>> explicityInstalledArtifacts = new BTreeIndexReference<String, HashSet<String>>();
-        protected BTreeIndexReference<String, Integer> artifacts = new BTreeIndexReference<String, Integer>();
+        // This is map of the artifcact -> set of installed artifacts that depend on it.
+        protected BTreeIndexReference<String, HashSet<String>> artifacts = new BTreeIndexReference<String, HashSet<String>>();
+        // This is map of the artifcactId -> set of artifacts that have the artifact id
         protected BTreeIndexReference<String, HashSet<String>> artifactIdIndex = new BTreeIndexReference<String, HashSet<String>>();
+        // This is map of the type -> set of artifacts that have the type
         protected BTreeIndexReference<String, HashSet<String>> typeIndex = new BTreeIndexReference<String, HashSet<String>>();
 
         public void create(Transaction tx) throws IOException {
