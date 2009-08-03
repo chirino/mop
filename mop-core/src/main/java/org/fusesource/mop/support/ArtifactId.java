@@ -7,6 +7,8 @@
  **************************************************************************************/
 package org.fusesource.mop.support;
 
+import org.fusesource.mop.MOP;
+
 /**
  * @author chirino
  */
@@ -60,11 +62,8 @@ public class ArtifactId {
         String parts[] = value.split(":");
         switch (parts.length) {
             case 4:
-                groupId = parts[0];
-                artifactId = parts[1];
-                type = parts[2];
-                version = parts[3];
-                return true;
+            case 5:
+                return parse(value, MOP.DEFAULT_VERSION, MOP.DEFAULT_TYPE);
             default:
                 return false;
         }

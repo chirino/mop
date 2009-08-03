@@ -16,6 +16,7 @@ import org.fusesource.mop.Option;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.Lookup;
+import org.fusesource.mop.Artifacts;
 import org.fusesource.mop.support.HasDefaultTargetType;
 
 import java.io.File;
@@ -51,11 +52,12 @@ public class Install implements HasDefaultTargetType {
      * Installs the given artifacts in the given target directory
      */
     @Command
-    public void install(List<File> artifacts, File targetDirectory) throws Exception {
+    public void install(Artifacts artifacts, File targetDirectory) throws Exception {
         System.out.println("installing to " + targetDirectory);
         checkTargetDirectory(targetDirectory);
 
-        for (File artifact : artifacts) {
+        List<File> files = artifacts.getFiles();
+        for (File artifact : files) {
             installFile(artifact, targetDirectory);
         }
     }

@@ -12,6 +12,7 @@ import org.apache.commons.logging.LogFactory;
 import org.fusesource.mop.Description;
 import org.fusesource.mop.Lookup;
 import org.fusesource.mop.MOP;
+import org.fusesource.mop.Artifacts;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -73,6 +74,8 @@ public class MethodCommandDefinition extends CommandDefinition {
         Class<?>[] paramTypes = method.getParameterTypes();
         int size = paramTypes.length;
         Object[] args = new Object[size];
+
+        
         for (int i = 0; i < size; i++) {
             if (argList.isEmpty()) {
                 throw new Exception("missing argument!");
@@ -80,10 +83,11 @@ public class MethodCommandDefinition extends CommandDefinition {
             Class<?> paramType = paramTypes[i];
             if (MOP.class.isAssignableFrom(paramType)) {
                 args[i] = mop;
+            } else if (Artifacts.class.isAssignableFrom(paramType)) {
+                args[i] = mop.getArtifacts(argList);
             } else if (Iterable.class.isAssignableFrom(paramType)) {
-                // lets assume its the files
-                List<File> list = mop.parseArtifacts(argList);
-                args[i] = list;
+                // lets assume its the command arguments
+                args[i] = argList;
             } else if (paramType == File.class) {
                 args[i] = new File(argList.removeFirst());
             } else if (paramType == String.class) {

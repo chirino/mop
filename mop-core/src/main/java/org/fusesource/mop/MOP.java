@@ -27,7 +27,12 @@ import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.tools.cli.AbstractCli;
 import org.fusesource.mop.commands.Install;
-import org.fusesource.mop.support.*;
+import org.fusesource.mop.support.ArtifactId;
+import org.fusesource.mop.support.CommandDefinition;
+import org.fusesource.mop.support.CommandDefinitions;
+import org.fusesource.mop.support.Database;
+import org.fusesource.mop.support.Logger;
+import org.fusesource.mop.support.MethodCommandDefinition;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -68,7 +73,7 @@ public class MOP extends AbstractCli {
     private String localRepo;
     private String[] remoteRepos;
     private String className;
-    private boolean online=true;
+    private boolean online = true;
 
     private ArrayList<ArtifactId> artifactIds;
     private List<String> reminingArgs;
@@ -124,18 +129,24 @@ public class MOP extends AbstractCli {
 
         System.out.println();
     }
-    /**
-     * Parses the artifacts removing them from the command line arguments
-     */
-    public List<File> parseArtifacts(LinkedList<String> argList) throws Exception {
+
+    public Artifacts getArtifacts(LinkedList<String> argList) throws UsageException {
         artifactIds = parseArtifactList(argList);
         reminingArgs = argList;
 
-        List<File> dependencies = resolveFiles();
-        return dependencies;
+        return new Artifacts() {
+            @Override
+            protected List<File> createFiles() throws Exception {
+                return resolveFiles();
+            }
+
+            @Override
+            protected Set<Artifact> createArtifacts() throws Exception {
+                return resolveArtifacts();
+            }
+        };
     }
 
-                
     /**
      * Removes any newlines in the text so its one big line
      */
@@ -171,9 +182,15 @@ public class MOP extends AbstractCli {
         remoteRepos = cli.getOptionValues('r');
         online = cli.hasOption('o');
 
-        if ( localRepo == null && System.getProperty("mop.base")!=null ) {
-            localRepo = System.getProperty("mop.base") + File.separator + "repository";
+        if (localRepo == null) {
+            if (System.getProperty("mop.base") != null) {
+                localRepo = System.getProperty("mop.base") + File.separator + "repository";
+            } else {
+                localRepo = ".mop" + File.separator + "repository";
+                LOG.warn("No mop.base property defined so setting local repo to: " + localRepo);
+            }
         }
+
 
         // now the remaining command line args
         try {
@@ -236,7 +253,7 @@ public class MOP extends AbstractCli {
 
     private void listCommand(LinkedList<String> argList) throws UsageException, IOException {
         String type = "installed";
-        if( !argList.isEmpty() ) {
+        if (!argList.isEmpty()) {
             type = argList.removeFirst();
         }
 
@@ -244,12 +261,12 @@ public class MOP extends AbstractCli {
         database.setDirectroy(new File(new File(localRepo), ".index"));
         database.open(true);
         try {
-            if( type.equals("installed") ) {
+            if (type.equals("installed")) {
                 Set<String> list = database.listInstalled();
                 for (String s : list) {
                     System.out.println(s);
                 }
-            } else if( type.equals("all") ) {
+            } else if (type.equals("all")) {
                 Set<String> list = database.listAll();
                 for (String s : list) {
                     System.out.println(s);
@@ -292,8 +309,7 @@ public class MOP extends AbstractCli {
             CommandDefinition command = commands.get(commandName);
             if (command == null) {
                 System.out.println("No such command '" + command + "'");
-            }
-            else {
+            } else {
                 System.out.println();
                 System.out.println("mop command: " + command.getName());
                 System.out.println();
@@ -569,7 +585,7 @@ public class MOP extends AbstractCli {
     }
 
     protected List<File> resolveFiles(Predicate<Artifact> filter) throws Exception {
-        LinkedHashSet<Artifact> artifacts = resolveArtifacts(container);
+        LinkedHashSet<Artifact> artifacts = resolveArtifacts();
 
         Predicate<Artifact> matchingArtifacts = Predicates.and(filter, new Predicate<Artifact>() {
             public boolean apply(@Nullable Artifact artifact) {
@@ -593,23 +609,23 @@ public class MOP extends AbstractCli {
         return files;
     }
 
-    private LinkedHashSet<Artifact> resolveArtifacts(PlexusContainer container) throws Exception {
+    private LinkedHashSet<Artifact> resolveArtifacts() throws Exception {
         LinkedHashSet<Artifact> artifacts = new LinkedHashSet<Artifact>();
         for (ArtifactId id : artifactIds) {
-            artifacts.addAll(resolveArtifacts(container, id));
+            artifacts.addAll(resolveArtifacts(id));
         }
         return artifacts;
     }
 
-    private Set<Artifact> resolveArtifacts(PlexusContainer container, ArtifactId id) throws Exception, InvalidRepositoryException {
+    private Set<Artifact> resolveArtifacts(ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
         Database database = new Database();
         database.setDirectroy(new File(new File(localRepo), ".index"));
         try {
 
             RepositorySystem repositorySystem = (RepositorySystem) container.lookup(RepositorySystem.class);
-            List<ArtifactRepository> remoteRepoList=new ArrayList<ArtifactRepository>();
-            if( online ) {
+            List<ArtifactRepository> remoteRepoList = new ArrayList<ArtifactRepository>();
+            if (online) {
                 addDefaultRemoteRepos(repositorySystem, remoteRepoList);
                 if (remoteRepos != null) {
                     int counter = 1;
@@ -630,7 +646,7 @@ public class MOP extends AbstractCli {
                     : repositorySystem.createDefaultLocalRepository();
 
 
-            if( online ) {
+            if (online) {
                 database.open(false);
 
                 // Keep track that we are trying an install..
@@ -642,17 +658,17 @@ public class MOP extends AbstractCli {
                 database.open(true);
 
                 // Makes groupId optional.. we look it up in the database.
-                if( id.getGroupId()==null ) {
+                if (id.getGroupId() == null) {
                     Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
-                    if( rc.isEmpty() ) {
-                        throw new Exception("No artifacts with artifact id '"+id.getArtifactId()+"' are locally installed.");
+                    if (rc.isEmpty()) {
+                        throw new Exception("No artifacts with artifact id '" + id.getArtifactId() + "' are locally installed.");
                     }
-                    if( rc.size() > 1 ) {
+                    if (rc.size() > 1) {
                         System.out.println("Please use one of the following:");
                         for (String s : rc.keySet()) {
-                            System.out.println("   "+s+":"+id.getArtifactId());
+                            System.out.println("   " + s + ":" + id.getArtifactId());
                         }
-                        throw new Exception("Multiple groups with artifact id '"+id.getArtifactId()+"' are locally installed.");
+                        throw new Exception("Multiple groups with artifact id '" + id.getArtifactId() + "' are locally installed.");
                     }
                     id.setGroupId(rc.keySet().iterator().next());
                 }
@@ -677,7 +693,7 @@ public class MOP extends AbstractCli {
             }
 
             Set<Artifact> rc = result.getArtifacts();
-            if( online ) {
+            if (online) {
                 // Have the DB index the installed the artifacts.
                 LinkedHashSet<String> installed = new LinkedHashSet<String>();
                 for (Artifact a : rc) {
@@ -688,7 +704,7 @@ public class MOP extends AbstractCli {
             return rc;
 
         } finally {
-            if( online ) {
+            if (online) {
                 database.installDone();
             }
             database.close();
