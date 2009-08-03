@@ -62,7 +62,7 @@ if [ -z "$MOP_HOME" ] ; then
   cd "$saveddir"
 
   # make it fully qualified
-  MOP_HOME=`cd "$MOP_HOME" && pwd`
+  MOP_HOME=`cd "$MOP_HOME/.." && pwd`
 fi
 
 # For Cygwin, ensure paths are in UNIX format before anything is touched
@@ -112,7 +112,7 @@ if $cygwin; then
 fi
 
 if [ -z "$MOP_OPTS" ] ; then
-  MOP_OPTS="-Xmx512M -Dorg.apache.mop.UseDedicatedTaskRunner=true"
+  MOP_OPTS="-Xmx512M"
 fi
 
 if [ -z "$SUNJMX" ] ; then
@@ -120,10 +120,7 @@ if [ -z "$SUNJMX" ] ; then
   SUNJMX="-Dcom.sun.management.jmxremote"
 fi
 
-MOP_OPTS="$MOP_OPTS $SUNJMX $SSL_OPTS"
-
-# Set default classpath
-MOP_CLASSPATH="${MOP_BASE}/conf;"$MOP_CLASSPATH
+MOP_OPTS="$MOP_OPTS $SUNJMX"
 
 # Optionally enable YourKit debugging
 if [ "x$YOURKIT_DEBUG" != "x" ]; then
@@ -136,8 +133,8 @@ if [ "x$MOP_DEBUG" != "x" ]; then
 fi
 
 if [ -n "$CYGHOME" ]; then
-    exec "$JAVACMD" $MOP_DEBUG_OPTS $MOP_OPTS -Dmop.classpath="${MOP_CLASSPATH}" -Dmop.home="${MOP_HOME}" -Dmop.base="${MOP_BASE}" -Dcygwin.user.home="$CYGHOME" -jar "${MOP_HOME}/mop.jar" $@
+    exec "$JAVACMD" $MOP_DEBUG_OPTS $MOP_OPTS -Dmop.classpath="${MOP_CLASSPATH}" -Dmop.home="${MOP_HOME}" -Dmop.base="${MOP_BASE}" -Dcygwin.user.home="$CYGHOME" -jar "${MOP_HOME}/bin/mop.jar" $@
 else
-    exec "$JAVACMD" $MOP_DEBUG_OPTS $MOP_OPTS -Dmop.classpath="${MOP_CLASSPATH}" -Dmop.home="${MOP_HOME}" -Dmop.base="${MOP_BASE}" -jar "${MOP_HOME}/mop.jar" $@
+    exec "$JAVACMD" $MOP_DEBUG_OPTS $MOP_OPTS -Dmop.classpath="${MOP_CLASSPATH}" -Dmop.home="${MOP_HOME}" -Dmop.base="${MOP_BASE}" -jar "${MOP_HOME}/bin/mop.jar" $@
 fi
 

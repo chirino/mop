@@ -72,7 +72,7 @@ public class MOP extends AbstractCli {
     private String localRepo;
     private String[] remoteRepos;
     private String className;
-    private boolean online;
+    private boolean online=true;
 
     private ArrayList<ArtifactId> artifactIds;
     private List<String> reminingArgs;
@@ -91,7 +91,7 @@ public class MOP extends AbstractCli {
         this.options = options;
         options.addOption("l", "local", true, "Specifies the local mop repo");
         options.addOption("r", "repo", true, "Specifies a remote maven repo");
-        options.addOption("o", "online", true, "Toggle online mode");
+        options.addOption("o", "online", false, "Toggle online mode");
         options.addOption("s", "scope", true, "Maven scope of transitive dependencies to include, defaults to 'compile'");
         return options;
     }
@@ -174,6 +174,10 @@ public class MOP extends AbstractCli {
         localRepo = cli.getOptionValue('l');
         remoteRepos = cli.getOptionValues('r');
         online = cli.hasOption('o');
+
+        if ( localRepo == null && System.getProperty("mop.base")!=null ) {
+            localRepo = System.getProperty("mop.base") + File.separator + "repository";
+        }
 
         // now the remaining command line args
         try {
@@ -571,34 +575,31 @@ public class MOP extends AbstractCli {
     }
 
     private Set<Artifact> resolveArtifacts(PlexusContainer container, ArtifactId id) throws Exception, InvalidRepositoryException {
-        Logger.debug("Loading artifact " + id);
+        Logger.debug("Resolving artifact " + id);
 
         RepositorySystem repositorySystem = (RepositorySystem) container.lookup(RepositorySystem.class);
-
-        //Artifact artifact = repositorySystem.createArtifact(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType());
         Artifact artifact = repositorySystem.createArtifactWithClassifier(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType(), id.getClassifier());
-
-        Logger.debug("Found artifact: " + artifact);
 
         ArtifactRepository localRepository = (localRepo != null)
                 ? repositorySystem.createLocalRepository(new File(localRepo))
                 : repositorySystem.createDefaultLocalRepository();
 
-        List<ArtifactRepository> remoteRepoList = new ArrayList<ArtifactRepository>();
-        addDefaultRemoteRepos(repositorySystem, remoteRepoList);
-
-        if (remoteRepos != null) {
-            int counter = 1;
-            ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-            DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
-            for (String remoteRepo : remoteRepos) {
-                String repoid = "repo" + (counter++);
-                Logger.debug("Adding repository with id: " + id + " url: " + remoteRepo);
-                ArtifactRepository repo = repositorySystem.createArtifactRepository(repoid, remoteRepo, layout, repositoryPolicy, repositoryPolicy);
-                remoteRepoList.add(repo);
+        List<ArtifactRepository> remoteRepoList=new ArrayList<ArtifactRepository>();;
+        if( online ) {
+            addDefaultRemoteRepos(repositorySystem, remoteRepoList);
+            if (remoteRepos != null) {
+                int counter = 1;
+                ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
+                DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
+                for (String remoteRepo : remoteRepos) {
+                    String repoid = "repo" + (counter++);
+                    Logger.debug("Adding repository with id: " + id + " url: " + remoteRepo);
+                    ArtifactRepository repo = repositorySystem.createArtifactRepository(repoid, remoteRepo, layout, repositoryPolicy, repositoryPolicy);
+                    remoteRepoList.add(repo);
+                }
             }
+            remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
         }
-        remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
 
         ArtifactResolutionRequest request = new ArtifactResolutionRequest()
                 .setArtifact(artifact)
