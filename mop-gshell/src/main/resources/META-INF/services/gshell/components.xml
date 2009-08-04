@@ -1,8 +1,31 @@
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:gshell="http://gshell.org/schema/wisdom-gshell"
        xsi:schemaLocation="
-            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+            http://gshell.org/schema/wisdom-gshell http://gshell.org/schema/wisdom-gshell/wisdom-gshell.xsd">
+
+  <gshell:plugin name="mop-plugin">
+    <description>
+      MOP plugin
+    </description>
 
 
+    <gshell:bundle name="mopBundle" class="org.fusesource.mop.gshell.MopBundle"/>
+  </gshell:plugin>
+
+  <!--
+  Need to define the pluginTemplate bean here, since plugin's are top-level and spring tries to validate it.
+  -->
+
+  <bean id="pluginTemplate" class="org.apache.geronimo.gshell.wisdom.plugin.PluginImpl" abstract="true">
+    <property name="activationRules">
+      <list>
+        <bean class="org.apache.geronimo.gshell.wisdom.plugin.activation.DefaultBundleActivationRule">
+          <property name="bundleName" value="default"/>
+        </bean>
+      </list>
+    </property>
+  </bean>
 
 </beans>
