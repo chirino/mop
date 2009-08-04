@@ -177,6 +177,7 @@ public class MOP extends AbstractCli {
         remoteRepos = cli.getOptionValues('r');
         online = cli.hasOption('o');
         online = !online;
+        Logger.debug("online mode: " + online);
 
         if (localRepo == null) {
             if (System.getProperty("mop.base") != null) {
@@ -758,8 +759,16 @@ public class MOP extends AbstractCli {
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
         DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
 
+        remoteRepoList.add(repositorySystem.createArtifactRepository("user.local.repo", "file:///" + System.getProperty("user.home", ".") + ".m2/repository", layout, repositoryPolicy, repositoryPolicy));
+
         remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2", "http://repo.fusesource.com/maven2", layout, repositoryPolicy, repositoryPolicy));
         remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot", layout, repositoryPolicy, repositoryPolicy));
+
+        // TODO we can remove these when we get consolidation of forge repos?
+        remoteRepoList.add(repositorySystem.createArtifactRepository("cloudmix.snapshot", "http://cloudmix.fusesource.org/repo/snapshot", layout, repositoryPolicy, repositoryPolicy));
+        remoteRepoList.add(repositorySystem.createArtifactRepository("cloudmix.release", "http://cloudmix.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
+        remoteRepoList.add(repositorySystem.createArtifactRepository("mop.snapshot", "http://mop.fusesource.org/repo/snapshot", layout, repositoryPolicy, repositoryPolicy));
+        remoteRepoList.add(repositorySystem.createArtifactRepository("mop.release", "http://mop.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
     }
 
 
