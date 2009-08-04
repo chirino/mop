@@ -116,6 +116,7 @@
   <modules>
     <module>mop-apt</module>
     <module>mop-core</module>
+    <module>mop-gshell</module>
     <module>mop-guice</module>
     <module>mop-spring</module>
     <module>mop</module>

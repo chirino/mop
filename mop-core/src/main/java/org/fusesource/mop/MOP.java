@@ -175,8 +175,7 @@ public class MOP extends AbstractCli {
         scope = cli.getOptionValue('s', "compile");
         localRepo = cli.getOptionValue('l');
         remoteRepos = cli.getOptionValues('r');
-        online = !cli.hasOption('o');
-
+        online = cli.hasOption('o');
         online = !online;
 
         if (localRepo == null) {
@@ -187,6 +186,7 @@ public class MOP extends AbstractCli {
                 LOG.warn("No mop.base property defined so setting local repo to: " + localRepo);
             }
         }
+
 
         // now the remaining command line args
         try {
@@ -858,6 +858,11 @@ public class MOP extends AbstractCli {
 
     public Options getOptions() {
         return options;
+    }
+
+    public Map<String, CommandDefinition> getCommands() {
+        checkCommandsLoaded();
+        return commands;
     }
 
     public void setOptions(Options options) {
