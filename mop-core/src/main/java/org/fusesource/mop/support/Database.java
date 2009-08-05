@@ -7,19 +7,34 @@
  **************************************************************************************/
 package org.fusesource.mop.support;
 
-import org.apache.kahadb.page.PageFile;
-import org.apache.kahadb.page.Transaction;
-import org.apache.kahadb.page.Page;
-import org.apache.kahadb.util.Marshaller;
-import org.apache.kahadb.util.LockFile;
-import org.apache.kahadb.index.BTreeIndex;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.fusesource.mop.support.ArtifactId;
+import org.apache.kahadb.index.BTreeIndex;
+import org.apache.kahadb.page.Page;
+import org.apache.kahadb.page.PageFile;
+import org.apache.kahadb.page.Transaction;
+import org.apache.kahadb.util.LockFile;
+import org.apache.kahadb.util.Marshaller;
 
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.nio.channels.FileChannel;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * @author chirino
@@ -31,8 +46,9 @@ public class Database {
     private boolean readOnly;
     private File directroy;
     private LockFile lock;
-    private int lockRetryTimeout = 200;
-    private int numberOfLockRetries = 10 * 1000 / lockRetryTimeout;
+    private long lockRetryTimeout = 500;
+    private long maximumRetryTime = 60 * 1000;
+    protected int logRetryCountEvery = 50;
 
     public void delete() throws IOException {
         getReadOnlyFile().delete();
@@ -41,14 +57,14 @@ public class Database {
     }
 
     public void open(boolean readOnly) throws IOException {
-        if( pageFile!=null && pageFile.isLoaded() ) {
+        if (pageFile != null && pageFile.isLoaded()) {
             throw new IllegalStateException("database allready opened.");
         }
         this.readOnly = readOnly;
         if (!getReadOnlyFile().exists()) {
             initialize();
         }
-        if( readOnly ) {
+        if (readOnly) {
             pageFile = new PageFile(directroy, "index");
             pageFile.setEnableWriteThread(false);
             pageFile.setEnableRecoveryFile(false);
@@ -64,16 +80,18 @@ public class Database {
     }
 
     protected void lock() throws IOException {
+        long timeoutTime = System.currentTimeMillis() + maximumRetryTime;
         for (int i = 0; true; i++) {
             try {
                 lock.lock();
                 return;
             } catch (IOException e) {
-                if (i >= numberOfLockRetries) {
+                long now = System.currentTimeMillis();
+                if (now > timeoutTime) {
                     LOG.info("Tried to lock the file " + lock + " " + i + " time(s) but failed " + e);
                     throw e;
                 }
-                if (i % 10 == 1) {
+                if (i > 0 && i % logRetryCountEvery == 0) {
                     LOG.info("retrying lock attempt " + i + " on " + lock);
                 }
                 try {
@@ -94,17 +112,16 @@ public class Database {
                 if (pageFile.isLoaded()) {
                     pageFile.flush();
                     pageFile.unload();
-                }
-                else {
+                } else {
                     LOG.warn("database was not loaded yet am about to close it", new Exception());
                 }
                 pageFile = null;
             }
         } finally {
-            if( !readOnly ) {
+            if (!readOnly) {
                 copy(getUpdateFile(), getReadOnlyFile());
                 lock.unlock();
-                lock=null;
+                lock = null;
             }
         }
     }
@@ -139,7 +156,7 @@ public class Database {
     }
 
     public void install(final LinkedHashSet<String> artifiactIds) throws IOException {
-        if( artifiactIds.isEmpty() ) {
+        if (artifiactIds.isEmpty()) {
             throw new IllegalArgumentException("artifiactIds cannot be empty");
         }
         final String mainArtifact = artifiactIds.iterator().next();
@@ -197,11 +214,11 @@ public class Database {
                     }
                     HashSet<String> rc = artifacts.get(tx, id);
                     rc.remove(mainArtifact);
-                    if( rc.isEmpty() ) {
+                    if (rc.isEmpty()) {
                         unused.add(id);
                         artifacts.remove(tx, id);
-                        indexRemove(tx, artifactIdIndex, id,  a.getArtifactId());
-                        indexRemove(tx, typeIndex, id,  a.getType());
+                        indexRemove(tx, artifactIdIndex, id, a.getArtifactId());
+                        indexRemove(tx, typeIndex, id, a.getType());
                     } else {
                         artifacts.put(tx, id, rc);
                     }
@@ -237,7 +254,7 @@ public class Database {
             ArtifactId id = new ArtifactId();
             id.strictParse(value);
             Set<String> t = rc.get(id.getGroupId());
-            if( t == null ) {
+            if (t == null) {
                 t = new LinkedHashSet(5);
                 rc.put(id.getGroupId(), t);
             }
@@ -265,10 +282,10 @@ public class Database {
             public TreeSet<String> execute(Transaction tx) throws IOException {
                 RootEntity root = RootEntity.load(tx);
                 BTreeIndex<String, HashSet<String>> artifacts = root.artifacts.get(tx);
-                Iterator<Map.Entry<String,HashSet<String>>> i = artifacts.iterator(tx);
-                TreeSet<String> rc = new TreeSet<String>(); 
+                Iterator<Map.Entry<String, HashSet<String>>> i = artifacts.iterator(tx);
+                TreeSet<String> rc = new TreeSet<String>();
                 while (i.hasNext()) {
-                    Map.Entry<String,HashSet<String>> entry =  i.next();
+                    Map.Entry<String, HashSet<String>> entry = i.next();
                     rc.add(entry.getKey());
                 }
                 return rc;
@@ -286,7 +303,7 @@ public class Database {
 
                 TreeSet<String> rc = new TreeSet<String>();
                 while (i.hasNext()) {
-                    Map.Entry<String, HashSet<String>> entry =  i.next();
+                    Map.Entry<String, HashSet<String>> entry = i.next();
                     rc.add(entry.getKey());
                 }
                 return rc;
@@ -301,7 +318,7 @@ public class Database {
                 RootEntity root = RootEntity.load(tx);
                 BTreeIndex<String, HashSet<String>> artifacts = root.artifacts.get(tx);
                 HashSet<String> deps = artifacts.get(tx, artifact);
-                if( deps==null ) {
+                if (deps == null) {
                     return null;
                 }
                 TreeSet<String> rc = new TreeSet<String>();
@@ -327,7 +344,7 @@ public class Database {
     }
 
     private void assertOpen() {
-        if (pageFile==null || !pageFile.isLoaded()) {
+        if (pageFile == null || !pageFile.isLoaded()) {
             throw new IllegalStateException("database not opened.");
         }
     }
@@ -351,14 +368,15 @@ public class Database {
                     root.create(tx);
                 }
             });
-            pageFile.flush();;
+            pageFile.flush();
+            ;
             pageFile.unload();
-            pageFile=null;
+            pageFile = null;
 
             copy(getUpdateFile(), getReadOnlyFile());
         } finally {
             lock.unlock();
-            lock=null;
+            lock = null;
         }
     }
 
@@ -384,9 +402,11 @@ public class Database {
     private File getUpdateFile() {
         return new File(directroy, "update.data");
     }
+
     private File getUpdateRedoFile() {
         return new File(directroy, "update.redo");
     }
+
     private File getReadOnlyFile() {
         return new File(directroy, "index.data");
     }
@@ -449,7 +469,7 @@ public class Database {
             tx.store(rootPage, RootEntity.MARSHALLER, true);
         }
     }
-    
+
     static private class BTreeIndexReference<K, V> implements Serializable {
         protected long pageId;
         transient protected BTreeIndex<K, V> index;
@@ -505,5 +525,5 @@ public class Database {
         public T deepCopy(T object) {
             return null;
         }
-   }
+    }
 }
