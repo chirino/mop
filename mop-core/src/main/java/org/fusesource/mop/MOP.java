@@ -759,7 +759,7 @@ public class MOP extends AbstractCli {
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
         DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
 
-        remoteRepoList.add(repositorySystem.createArtifactRepository("user.local.repo", "file:///" + System.getProperty("user.home", ".") + ".m2/repository", layout, repositoryPolicy, repositoryPolicy));
+        remoteRepoList.add(repositorySystem.createArtifactRepository("user.local.repo", "file://" + System.getProperty("user.home", ".") + "/.m2/repository", layout, repositoryPolicy, repositoryPolicy));
 
         remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2", "http://repo.fusesource.com/maven2", layout, repositoryPolicy, repositoryPolicy));
         remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot", layout, repositoryPolicy, repositoryPolicy));

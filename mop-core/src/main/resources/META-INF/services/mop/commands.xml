@@ -22,7 +22,7 @@
     <usage><![CDATA[ [<warArtifact(s)>] [<jettyArgument(s)>]]></usage>
   </command>
 
-  <command name="cloudmix-agent" alias="jar org.fusesource.cloudmix:org.fusesource.cloudmix.agent.mop:bundle:${version}">
+  <command name="cloudmix-agent" alias="jar org.fusesource.cloudmix:org.fusesource.cloudmix.agent.mop:${version}">
     <description>
       Starts a CloudMix agent
     </description>
