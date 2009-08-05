@@ -156,10 +156,12 @@
     </plugins>
   </build>
 
-  <profile>
-    <id>gshell</id>
-    <modules>
-      <module>mop-gshell</module>
-    </modules>
-  </profile>
+  <profiles>
+    <profile>
+      <id>gshell</id>
+      <modules>
+        <module>mop-gshell</module>
+      </modules>
+    </profile>
+  </profiles>
 </project>
