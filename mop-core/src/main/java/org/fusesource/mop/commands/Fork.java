@@ -8,6 +8,8 @@
 package org.fusesource.mop.commands;
 
 import com.google.common.collect.Lists;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.ProcessRunner;
@@ -20,21 +22,23 @@ import java.util.List;
  * @version $Revision: 1.1 $
  */
 public class Fork {
+    private static final transient Log LOG = LogFactory.getLog(Fork.class);
 
     /**
      * Forks a new child JVM and executes the remaining arguments as a child MOP process
      */
     @Command
     public ProcessRunner fork(MOP mop, LinkedList<String> args) throws Exception {
-        System.out.println("forking MOP with " + args);
+        LOG.info("forking MOP with " + args);
 
+        // TODO we could try find a mop jar on the URL class loader?
 
         Package aPackage = Package.getPackage("org.fusesource.mop");
         String version = aPackage.getImplementationVersion();
         if (version == null) {
             version = aPackage.getSpecificationVersion();
         }
-        System.out.println("Package version: " + version);
+        LOG.debug("mop package version: " + version);
 
         // TODO LATEST/RELEASE don't tend to work?
 /*
@@ -54,7 +58,7 @@ public class Fork {
                 throw new Exception("no java.class.path system property available!");
             }
         }
-        
+
         List<String> newArgs = Lists.newArrayList();
         newArgs.add("java");
         newArgs.add("-cp");
