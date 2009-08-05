@@ -76,10 +76,27 @@ public class MOP extends AbstractCli {
     private String defaultVersion = DEFAULT_VERSION;
     private String defaultType = DEFAULT_TYPE;
     private PlexusContainer container;
+    private File workingDirectory;
+    protected ProcessRunner processRunner;
 
     public static void main(String[] args) {
         MOP mop = new MOP();
-        System.exit(mop.execute(args));
+        int exitValue = mop.executeAndWait(args);
+        System.exit(exitValue);
+    }
+
+    /**
+     * Executes the given MOP command and waits for the response, blocking the calling thread
+     * until any child processes complete.
+     *
+     * @return the exit code
+     */
+    public int executeAndWait(String[] args) {
+        int answer = execute(args);
+        if (processRunner != null) {
+            answer = processRunner.join();    
+        }
+        return answer;
     }
 
 
@@ -214,9 +231,7 @@ public class MOP extends AbstractCli {
     }
 
     public void processCommandLine(LinkedList<String> argList) throws Exception {
-        // lets reset values in case we chain things together...
-        defaultVersion = DEFAULT_VERSION;
-        defaultType = DEFAULT_TYPE;
+        resetValues();
 
         if (argList.isEmpty()) {
             displayHelp();
@@ -224,23 +239,23 @@ public class MOP extends AbstractCli {
         }
         String command = argList.removeFirst();
         if (command.equals("exec")) {
-            execCommand(container, argList);
+            execJava(argList);
         } else if (command.equals("execjar")) {
-            execJarCommand(container, argList);
+            execJarCommand(argList);
         } else if (command.equals("jar")) {
-            jarCommand(container, argList);
+            jarCommand(argList);
         } else if (command.equals("run")) {
-            runCommand(container, argList);
+            runCommand(argList);
         } else if (command.equals("echo")) {
-            echoCommand(container, argList);
+            echoCommand(argList);
         } else if (command.equals("classpath")) {
-            classpathCommand(container, argList);
+            classpathCommand(argList);
         } else if (command.equals("copy")) {
-            copyCommand(container, argList);
+            copyCommand(argList);
         } else if (command.equals("war")) {
-            warCommand(container, argList);
+            warCommand(argList);
         } else if (command.equals("help")) {
-            helpCommand(container, argList);
+            helpCommand(argList);
         } else if (command.equals("list")) {
             listCommand(argList);
         } else if (command.equals("uninstall")) {
@@ -249,7 +264,14 @@ public class MOP extends AbstractCli {
             tryDiscoverCommand(command, argList);
         }
     }
-    
+
+    protected void resetValues() {
+        // lets reset values in case we chain things together...
+        defaultVersion = DEFAULT_VERSION;
+        defaultType = DEFAULT_TYPE;
+        workingDirectory = new File(System.getProperty("user.dir"));
+    }
+
     private void uninstallCommand(LinkedList<String> argList) throws UsageException, IOException {
         artifactIds = parseArtifactList(argList);
 
@@ -340,7 +362,7 @@ public class MOP extends AbstractCli {
         command.executeCommand(this, argList);
     }
 
-    protected void helpCommand(PlexusContainer container, LinkedList<String> argList) {
+    protected void helpCommand(LinkedList<String> argList) {
         if (argList.isEmpty()) {
             displayHelp();
             return;
@@ -364,7 +386,7 @@ public class MOP extends AbstractCli {
     }
 
 
-    private void execCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
+    private ProcessRunner execJava(LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
         artifactIds = parseArtifactList(argList);
         assertNotEmpty(argList);
@@ -373,33 +395,45 @@ public class MOP extends AbstractCli {
 
         List<File> dependencies = resolveFiles();
 
-        execClass(dependencies);
+        return execClass(dependencies);
     }
 
-    private void execJarCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
+    public ProcessRunner execJarCommand(LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
         artifactIds = parseArtifactList(argList);
-        assertNotEmpty(argList);
         reminingArgs = argList;
 
         List<File> dependencies = resolveFiles();
         setClassNameFromExecutableJar(dependencies);
 
-        execClass(dependencies);
+        return execClass(dependencies);
     }
 
-    protected void execClass(List<File> dependencies) {
-        ArrayList<String> commandLine = new ArrayList<String>();
+    protected ProcessRunner execClass(List<File> dependencies) throws Exception {
+        List<String> commandLine = new ArrayList<String>();
         commandLine.add("java");
         commandLine.add("-cp");
-        commandLine.add("\"" + classpath(dependencies) + "\"");
+        commandLine.add(classpath(dependencies));
         commandLine.add(className);
         commandLine.addAll(reminingArgs);
 
-        Logger.debug("execing: " + commandLine);
+        return exec(commandLine);
     }
 
-    private void jarCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
+    public ProcessRunner exec(List<String> commandLine) throws Exception {
+        Logger.debug("execing: " + commandLine);
+
+        String[] cmd = commandLine.toArray(new String[commandLine.size()]);
+
+        // TODO pass in environment
+        String[] env = {};
+
+        processRunner = ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
+        return processRunner;
+
+    }
+
+    private void jarCommand(LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
         artifactIds = parseArtifactList(argList);
         reminingArgs = argList;
@@ -411,7 +445,7 @@ public class MOP extends AbstractCli {
     }
 
 
-    protected void warCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
+    protected void warCommand(LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
         defaultType = "war";
         artifactIds = parseArtifactList(argList);
@@ -471,7 +505,7 @@ public class MOP extends AbstractCli {
         }
     }
 
-    private void runCommand(PlexusContainer container, LinkedList<String> argList) throws Exception, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+    private void runCommand(LinkedList<String> argList) throws Exception, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         assertNotEmpty(argList);
         artifactIds = parseArtifactList(argList);
         assertNotEmpty(argList);
@@ -509,7 +543,7 @@ public class MOP extends AbstractCli {
         return classLoader;
     }
 
-    private void copyCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
+    private void copyCommand(LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
         artifactIds = parseArtifactList(argList);
         assertNotEmpty(argList);
@@ -550,14 +584,14 @@ public class MOP extends AbstractCli {
         }
     }
 
-    private void classpathCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
+    private void classpathCommand(LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
         List<File> dependencies = resolveFiles();
         String classpath = classpath(dependencies);
         System.out.println(classpath);
     }
 
-    private void echoCommand(PlexusContainer container, LinkedList<String> argList) throws Exception {
+    private void echoCommand(LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
         List<File> dependencies = resolveFiles();
         String classpath = classpath(dependencies);
@@ -932,5 +966,9 @@ public class MOP extends AbstractCli {
 
     public void setOnline(boolean online) {
         this.online = online;
+    }
+
+    public ProcessRunner getProcessRunner() {
+        return processRunner;
     }
 }
