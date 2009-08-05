@@ -78,8 +78,8 @@ public class MOP extends AbstractCli {
     private PlexusContainer container;
 
     public static void main(String[] args) {
-        org.fusesource.mop.MOP mavenRunner = new org.fusesource.mop.MOP();
-        System.exit(mavenRunner.execute(args));
+        MOP mop = new MOP();
+        System.exit(mop.execute(args));
     }
 
 
