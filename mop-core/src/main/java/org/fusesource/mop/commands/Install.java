@@ -10,23 +10,25 @@ package org.fusesource.mop.commands;
 import org.codehaus.plexus.archiver.ArchiverException;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
-import org.codehaus.plexus.archiver.manager.DefaultArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.fusesource.mop.Option;
 import org.fusesource.mop.Command;
-import org.fusesource.mop.MOP;
 import org.fusesource.mop.Lookup;
 import org.fusesource.mop.Artifacts;
-import org.fusesource.mop.support.HasDefaultTargetType;
+import org.fusesource.mop.MOP;
+import org.fusesource.mop.support.ConfiguresMop;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import java.io.File;
 import java.util.List;
-import java.util.LinkedList;
 
 /**
  * @version $Revision: 1.1 $
  */
-public class Install implements HasDefaultTargetType {
+public class Install implements ConfiguresMop {
+    private static final transient Log LOG = LogFactory.getLog(Install.class);
+
     @Option
     private boolean failIfNotExit = false;
 
@@ -38,14 +40,15 @@ public class Install implements HasDefaultTargetType {
         return "Install[archiver: " + archiverManager + " failIfNotExit: " + failIfNotExit + "]";
     }
 
-    public String getDefaultType() {
+    public void configure(MOP mop) {
         String defaultType = "tar.gz";
         String osName = System.getProperty("os.name", "NO OS NAME!!");
         if (osName.contains("Windows")) {
             defaultType = "zip";
         }
-        System.out.println("OS name " + osName + " has default type: " + defaultType);
-        return defaultType;
+        LOG.debug("OS name " + osName + " has default type: " + defaultType);
+        mop.setDefaultType(defaultType);
+        mop.setTransitive(false);
     }
 
     /**

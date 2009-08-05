@@ -7,9 +7,15 @@
  **************************************************************************************/
 package org.fusesource.mop.support;
 
+import org.fusesource.mop.MOP;
+
 /**
+ * A marker interface to allow a Command to configure the MOP before an attempt is made
+ * to inject its method parameters such as setting the default type or enabling or disabling
+ * transitive dependencies etc.
+ *
  * @version $Revision: 1.1 $
  */
-public interface HasDefaultTargetType {
-    String getDefaultType();
+public interface ConfiguresMop {
+    void configure(MOP mop);
 }

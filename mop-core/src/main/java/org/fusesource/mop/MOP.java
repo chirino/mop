@@ -77,7 +77,8 @@ public class MOP extends AbstractCli {
     private String defaultType = DEFAULT_TYPE;
     private PlexusContainer container;
     private File workingDirectory;
-    protected ProcessRunner processRunner;
+    private ProcessRunner processRunner;
+    private boolean transitive = true;
 
     public static void main(String[] args) {
         MOP mop = new MOP();
@@ -267,9 +268,11 @@ public class MOP extends AbstractCli {
 
     protected void resetValues() {
         // lets reset values in case we chain things together...
+        processRunner = null;
         defaultVersion = DEFAULT_VERSION;
         defaultType = DEFAULT_TYPE;
         workingDirectory = new File(System.getProperty("user.dir"));
+        transitive = true;
     }
 
     private void uninstallCommand(LinkedList<String> argList) throws UsageException, IOException {
@@ -756,7 +759,7 @@ public class MOP extends AbstractCli {
             ArtifactResolutionRequest request = new ArtifactResolutionRequest()
                     .setArtifact(artifact)
                     .setResolveRoot(true)
-                    .setResolveTransitively(true)
+                    .setResolveTransitively(isTransitive())
                     .setLocalRepository(localRepository)
                     .setRemoteRepostories(remoteRepoList);
 
@@ -968,7 +971,23 @@ public class MOP extends AbstractCli {
         this.online = online;
     }
 
+    public boolean isTransitive() {
+        return transitive;
+    }
+
+    public void setTransitive(boolean transitive) {
+        this.transitive = transitive;
+    }
+
     public ProcessRunner getProcessRunner() {
         return processRunner;
+    }
+
+    public File getWorkingDirectory() {
+        return workingDirectory;
+    }
+
+    public void setWorkingDirectory(File workingDirectory) {
+        this.workingDirectory = workingDirectory;
     }
 }

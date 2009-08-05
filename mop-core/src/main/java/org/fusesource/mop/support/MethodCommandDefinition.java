@@ -19,7 +19,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedList;
-import java.util.List;
 
 /**
  * @version $Revision: 1.1 $
@@ -98,9 +97,9 @@ public class MethodCommandDefinition extends CommandDefinition {
 
         }
 
-        if (bean instanceof HasDefaultTargetType) {
-            HasDefaultTargetType hasDefaultTargetType = (HasDefaultTargetType) bean;
-            mop.setDefaultType(hasDefaultTargetType.getDefaultType());
+        if (bean instanceof ConfiguresMop) {
+            ConfiguresMop configuresMop = (ConfiguresMop) bean;
+            configuresMop.configure(mop);
         }
         try {
             method.invoke(bean, args);
