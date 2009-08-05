@@ -12,7 +12,8 @@
   <name>MOP :: APT</name>
 
   <description>Annotation Processor to auto-generate the usage and documentation documentation from
-    the source code for annotation based commands</description>
+    the source code for annotation based commands
+  </description>
 
   <dependencies>
     <dependency>
@@ -22,4 +23,25 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
+  <profiles>
+    <profile>
+      <id>default-tools.jar</id>
+      <activation>
+        <property>
+          <name>java.vendor</name>
+          <value>Sun Microsystems Inc.</value>
+        </property>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>com.sun</groupId>
+          <artifactId>tools</artifactId>
+          <version>1.5</version>
+          <scope>system</scope>
+          <systemPath>${java.home}/../lib/tools.jar</systemPath>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
 </project>
