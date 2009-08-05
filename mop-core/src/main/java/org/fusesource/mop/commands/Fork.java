@@ -7,25 +7,14 @@
  **************************************************************************************/
 package org.fusesource.mop.commands;
 
-import org.codehaus.plexus.archiver.ArchiverException;
-import org.codehaus.plexus.archiver.UnArchiver;
-import org.codehaus.plexus.archiver.manager.ArchiverManager;
-import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
-import org.fusesource.mop.Option;
+import com.google.common.collect.Lists;
 import org.fusesource.mop.Command;
-import org.fusesource.mop.Lookup;
-import org.fusesource.mop.Artifacts;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.ProcessRunner;
-import org.fusesource.mop.support.ConfiguresMop;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.fusesource.mop.support.ArtifactId;
 
-import java.io.File;
-import java.util.List;
 import java.util.LinkedList;
-
-import com.google.common.collect.Lists;
+import java.util.List;
 
 /**
  * @version $Revision: 1.1 $
@@ -39,13 +28,33 @@ public class Fork {
     public ProcessRunner fork(MOP mop, LinkedList<String> args) throws Exception {
         System.out.println("forking MOP with " + args);
 
-        // TODO we could either use the system classpath
-        // or we could discover MOP ourselves and restart that
-        String classpath = System.getProperty("java.class.path");
-        if (classpath == null || classpath.length() == 0) {
-            throw new Exception("no java.class.path system property available!");
-        }
 
+        Package aPackage = Package.getPackage("org.fusesource.mop");
+        String version = aPackage.getImplementationVersion();
+        if (version == null) {
+            version = aPackage.getSpecificationVersion();
+        }
+        System.out.println("Package version: " + version);
+
+        // TODO LATEST/RELEASE don't tend to work?
+/*
+        if (version == null) {
+            version = "RELEASE";
+        }
+*/
+        String classpath;
+        if (version != null) {
+            ArtifactId mopArtifactId = mop.parseArtifactId("org.fusesource.mop:mop-core:" + version);
+            mop.setTransitive(false);
+            mop.setArtifactIds(Lists.newArrayList(mopArtifactId));
+            classpath = mop.classpath();
+        } else {
+            classpath = System.getProperty("java.class.path");
+            if (classpath == null || classpath.length() == 0) {
+                throw new Exception("no java.class.path system property available!");
+            }
+        }
+        
         List<String> newArgs = Lists.newArrayList();
         newArgs.add("java");
         newArgs.add("-cp");
@@ -55,7 +64,6 @@ public class Fork {
 
         return mop.exec(newArgs);
     }
-
 
 
 }

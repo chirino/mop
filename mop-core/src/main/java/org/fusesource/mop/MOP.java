@@ -72,7 +72,7 @@ public class MOP extends AbstractCli {
     private String className;
     private boolean online = true;
 
-    private ArrayList<ArtifactId> artifactIds;
+    private List<ArtifactId> artifactIds;
     private List<String> reminingArgs;
     private Map<String, CommandDefinition> commands;
     private String defaultVersion = DEFAULT_VERSION;
@@ -596,15 +596,19 @@ public class MOP extends AbstractCli {
 
     private void classpathCommand(LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
+        String classpath = classpath();
+        System.out.println(classpath);
+    }
+
+    public String classpath() throws Exception {
         List<File> dependencies = resolveFiles();
         String classpath = classpath(dependencies);
-        System.out.println(classpath);
+        return classpath;
     }
 
     private void echoCommand(LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
-        List<File> dependencies = resolveFiles();
-        String classpath = classpath(dependencies);
+        String classpath = classpath();
         System.out.print("java -cp \"" + classpath + "\"");
         for (String arg : argList) {
             System.out.print(" \"" + arg + "\"");
@@ -632,23 +636,25 @@ public class MOP extends AbstractCli {
         ArrayList<ArtifactId> rc = new ArrayList<ArtifactId>();
         assertNotEmpty(values);
         String value = values.removeFirst();
-        ArtifactId id = new ArtifactId();
-        if (!id.parse(value, defaultVersion, defaultType)) {
-            throw new UsageException("");
-        }
+        ArtifactId id = parseArtifactId(value);
         rc.add(id);
 
         while (!values.isEmpty() && isAnotherArtifactId(values.getFirst())) {
             value = values.removeFirst().substring(1);
-            id = new ArtifactId();
-            if (!id.parse(value, defaultVersion, defaultType)) {
-                throw new UsageException("");
-            }
+            id = parseArtifactId(value);
             rc.add(id);
         }
 
         return rc;
 
+    }
+
+    public ArtifactId parseArtifactId(String value) throws UsageException {
+        ArtifactId id = new ArtifactId();
+        if (!id.parse(value, defaultVersion, defaultType)) {
+            throw new UsageException("Invalid artifactId: " + value);
+        }
+        return id;
     }
 
     static private class UsageException extends Exception {
@@ -663,14 +669,12 @@ public class MOP extends AbstractCli {
         }
     }
 
-    // Implementation methods
-    //-------------------------------------------------------------------------
-    protected List<File> resolveFiles() throws Exception {
+    public List<File> resolveFiles() throws Exception {
         return resolveFiles(Predicates.<Artifact>alwaysTrue());
     }
 
-    protected List<File> resolveFiles(Predicate<Artifact> filter) throws Exception {
-        LinkedHashSet<Artifact> artifacts = resolveArtifacts();
+    public List<File> resolveFiles(Predicate<Artifact> filter) throws Exception {
+        Set<Artifact> artifacts = resolveArtifacts();
 
         Predicate<Artifact> matchingArtifacts = Predicates.and(filter, new Predicate<Artifact>() {
             public boolean apply(@Nullable Artifact artifact) {
@@ -694,7 +698,7 @@ public class MOP extends AbstractCli {
         return files;
     }
 
-    private LinkedHashSet<Artifact> resolveArtifacts() throws Exception {
+    public Set<Artifact> resolveArtifacts() throws Exception {
         LinkedHashSet<Artifact> artifacts = new LinkedHashSet<Artifact>();
         for (ArtifactId id : artifactIds) {
             artifacts.addAll(resolveArtifacts(id));
@@ -702,6 +706,9 @@ public class MOP extends AbstractCli {
         return artifacts;
     }
 
+    // Implementation methods
+    //-------------------------------------------------------------------------
+    
     private Set<Artifact> resolveArtifacts(ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
         Database database = new Database();
@@ -948,11 +955,11 @@ public class MOP extends AbstractCli {
         this.scope = scope;
     }
 
-    public ArrayList<ArtifactId> getArtifactIds() {
+    public List<ArtifactId> getArtifactIds() {
         return artifactIds;
     }
 
-    public void setArtifactIds(ArrayList<ArtifactId> artifactIds) {
+    public void setArtifactIds(List<ArtifactId> artifactIds) {
         this.artifactIds = artifactIds;
     }
 

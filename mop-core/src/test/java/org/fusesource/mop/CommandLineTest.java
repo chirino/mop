@@ -68,7 +68,7 @@ public class CommandLineTest extends TestCase {
     protected void doRun(String... args) {
         mavenRunner = new MOP() {
             @Override
-            protected List<File> resolveFiles() throws ComponentLookupException, InvalidRepositoryException {
+            public List<File> resolveFiles() throws ComponentLookupException, InvalidRepositoryException {
                 System.out.println("We would be doing something now :)");
                 return new ArrayList<File>();
             }
