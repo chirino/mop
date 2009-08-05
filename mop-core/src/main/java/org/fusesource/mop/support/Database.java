@@ -13,6 +13,8 @@ import org.apache.kahadb.page.Page;
 import org.apache.kahadb.util.Marshaller;
 import org.apache.kahadb.util.LockFile;
 import org.apache.kahadb.index.BTreeIndex;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.fusesource.mop.support.ArtifactId;
 
 import java.io.*;
@@ -23,11 +25,14 @@ import java.nio.channels.FileChannel;
  * @author chirino
  */
 public class Database {
+    private static final transient Log LOG = LogFactory.getLog(Database.class);
 
     private PageFile pageFile;
     private boolean readOnly;
     private File directroy;
     private LockFile lock;
+    private int lockRetryTimeout = 200;
+    private int numberOfLockRetries = 10 * 1000 / lockRetryTimeout;
 
     public void delete() throws IOException {
         getReadOnlyFile().delete();
@@ -49,7 +54,7 @@ public class Database {
             pageFile.setEnableRecoveryFile(false);
         } else {
             lock = new LockFile(getUpdateFile(), false);
-            lock.lock();
+            lock();
             pageFile = new PageFile(directroy, "update");
             pageFile.setEnableWriteThread(false);
             pageFile.setEnableRecoveryFile(true);
@@ -58,13 +63,43 @@ public class Database {
         pageFile.load();
     }
 
+    protected void lock() throws IOException {
+        for (int i = 0; true; i++) {
+            try {
+                lock.lock();
+                return;
+            } catch (IOException e) {
+                if (i >= numberOfLockRetries) {
+                    LOG.info("Tried to lock the file " + lock + " " + i + " time(s) but failed " + e);
+                    throw e;
+                }
+                if (i % 10 == 1) {
+                    LOG.info("retrying lock attempt " + i + " on " + lock);
+                }
+                try {
+                    Thread.sleep(lockRetryTimeout);
+                } catch (InterruptedException e1) {
+                    // ignore
+                }
+            }
+        }
+    }
+
 
     public void close() throws IOException {
         try {
-            assertOpen();
-            pageFile.flush();
-            pageFile.unload();
-            pageFile=null;
+            // TODO is this valid?
+            //assertOpen();
+            if (pageFile != null) {
+                if (pageFile.isLoaded()) {
+                    pageFile.flush();
+                    pageFile.unload();
+                }
+                else {
+                    LOG.warn("database was not loaded yet am about to close it", new Exception());
+                }
+                pageFile = null;
+            }
         } finally {
             if( !readOnly ) {
                 copy(getUpdateFile(), getReadOnlyFile());
@@ -299,7 +334,7 @@ public class Database {
 
     private void initialize() throws IOException {
         lock = new LockFile(getUpdateFile(), false);
-        lock.lock();
+        lock();
         try {
             // Now that we have the lock.. lets check again..
             if (getReadOnlyFile().exists()) {
