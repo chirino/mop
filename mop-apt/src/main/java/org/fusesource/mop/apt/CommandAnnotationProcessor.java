@@ -62,6 +62,9 @@ public class CommandAnnotationProcessor extends SimpleDeclarationVisitor {
         StringBuilder builder = new StringBuilder();
         Collection<ParameterDeclaration> parameters = methodDeclaration.getParameters();
         for (ParameterDeclaration parameter : parameters) {
+            if (ignoreParameterFromUsage(parameter)) {
+                continue;
+            }
             if (builder.length() > 0) {
                 builder.append(" ");
             }
@@ -84,6 +87,10 @@ public class CommandAnnotationProcessor extends SimpleDeclarationVisitor {
         System.out.println("@Command method: " + methodDeclaration + " on " + type);
         System.out.println("entries: " + list);
 
+    }
+
+    protected boolean ignoreParameterFromUsage(ParameterDeclaration parameter) {
+        return parameter.getType().toString().equals("org.fusesource.mop.MOP");
     }
 
     public void writeResources()  {

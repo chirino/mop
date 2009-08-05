@@ -26,7 +26,7 @@
     <description>
       Starts a CloudMix agent
     </description>
-    <usage><![CDATA[ [cloudmixUrl] [profile] [workingDirectory] ]]></usage>
+    <usage><![CDATA[ [cloudmixUrl] [profile] [workDir] ]]></usage>
   </command>
 
   <command name="karaf" alias="jar org.apache.felix:karaf-main ${artifacts}">
@@ -41,7 +41,7 @@
       Starts an Apache ActiveMQ broker along with the web console. You can use broker:version to specify the ActiveMQ
       version
     </description>
-    <usage><![CDATA[ [<jettyArgs(s)>]]></usage>
+    <usage><![CDATA[ <jettyArgs(s)>]]></usage>
   </command>
 
 
@@ -50,7 +50,7 @@
     <description>
       Runs the Apache Camel POJO Messaging Example. For more see: http://camel.apache.org/pojo-messaging-example.html
     </description>
-    <usage><![CDATA[ [<args(s)>]]></usage>
+    <usage><![CDATA[ <args(s)> ]]></usage>
   </command>
 
 </commands>

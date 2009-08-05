@@ -27,6 +27,7 @@ import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.tools.cli.AbstractCli;
 import org.fusesource.mop.commands.Install;
+import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
@@ -42,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
@@ -121,17 +123,6 @@ public class MOP extends AbstractCli {
 
         checkCommandsLoaded();
 
-        HelpFormatter formatter = new HelpFormatter();
-
-        StringBuilder buffer = new StringBuilder();
-        for (CommandDefinition command : commands.values()) {
-            buffer.append(String.format("\n mop [options] %-20s %s", command.getName(), removeNewLines(command.getUsage())));
-        }
-        formatter.printHelp(buffer.toString(), "\nOptions:", options, "\n");
-
-        System.out.println();
-        System.out.println("<artifact> is of the format: [groupId:]artifactId[[:type[:classifier]]:version] [+<artifact>]");
-        System.out.println();
         System.out.println("Commands:");
 
         for (Map.Entry<String, CommandDefinition> entry : commands.entrySet()) {
@@ -140,6 +131,22 @@ public class MOP extends AbstractCli {
             System.out.printf("\t%-20s : %s\n", entry.getKey(), description);
         }
 
+        System.out.println();
+
+        System.out.println();
+        System.out.println("Usage:");
+        for (CommandDefinition command : commands.values()) {
+            System.out.println(String.format("  mop [options] %-20s %s", command.getName(), removeNewLines(command.getUsage())));
+        }
+        System.out.println();
+        System.out.println("  where <artifact> is of the format: [groupId:]artifactId[[:type[:classifier]]:version] [+<artifact>]");
+        System.out.println();
+
+        System.out.println("Options:");
+        PrintWriter out = new PrintWriter(System.out);
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printOptions(out, 78, options, 2, 2);
+        out.flush();
         System.out.println();
     }
 
@@ -165,7 +172,7 @@ public class MOP extends AbstractCli {
      */
     private String removeNewLines(String text) {
         StringBuilder buffer = new StringBuilder();
-        BufferedReader reader = new BufferedReader(new StringReader(text));
+        BufferedReader reader = new BufferedReader(new StringReader(text.trim()));
         boolean first = true;
         while (true) {
             try {
@@ -844,7 +851,9 @@ public class MOP extends AbstractCli {
 
         registerDefaultCommand("help", "<command(s)>", "displays help summarising all of the commands or shows custom help for each command listed");
 
+        // TODO it would be better to auto-discover these from the package!!!
         registerCommandMethods(new Install());
+        registerCommandMethods(new Fork());
     }
 
     private void registerCommandMethods(Object commandObject) {
