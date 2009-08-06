@@ -22,6 +22,16 @@
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-compat</artifactId>
       <version>${maven-version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>nekohtml</groupId>
+          <artifactId>xercesMinimal</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>nekohtml</groupId>
+          <artifactId>nekohtml</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -99,6 +109,26 @@
                 </transformer>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ComponentsXmlResourceTransformer"/>
               </transformers>
+              <!-- TODO relocate some code? Might mess up the plexus stuff though! -->
+              <relocations>
+                <relocation>
+                  <pattern>com.google.common</pattern>
+                  <shadedPattern>org.fusesource.mop.common</shadedPattern>
+<!--
+                  <excludes>
+                    <exclude>org.codehaus.plexus.util.xml.pull.*</exclude>
+                  </excludes>
+-->
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.kahadb</pattern>
+                  <shadedPattern>org.fusesource.mop.db</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.commons.cli</pattern>
+                  <shadedPattern>org.fusesource.mop.cli</shadedPattern>
+                </relocation>
+              </relocations>
             </configuration>
           </execution>
         </executions>
