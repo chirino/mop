@@ -428,6 +428,8 @@ public class Database {
     ///////////////////////////////////////////////////////////////////
 
     static private class RootEntity implements Serializable {
+        private static final long serialVersionUID = -3845184822064658540L;
+
         static Marshaller<RootEntity> MARSHALLER = new ObjectMarshaller<RootEntity>();
 
         protected String installingArtifact;
@@ -471,6 +473,8 @@ public class Database {
     }
 
     static private class BTreeIndexReference<K, V> implements Serializable {
+        private static final long serialVersionUID = 3875822596923539147L;
+
         protected long pageId;
         transient protected BTreeIndex<K, V> index;
 
