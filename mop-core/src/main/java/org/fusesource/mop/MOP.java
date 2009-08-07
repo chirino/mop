@@ -7,10 +7,31 @@
  **************************************************************************************/
 package org.fusesource.mop;
 
-import com.google.common.base.Nullable;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Sets;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
@@ -26,8 +47,10 @@ import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
 import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.tools.cli.AbstractCli;
-import org.fusesource.mop.commands.Install;
 import org.fusesource.mop.commands.Fork;
+import org.fusesource.mop.commands.Install;
+import org.fusesource.mop.commands.ServiceMix;
+import org.fusesource.mop.commands.Shell;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
@@ -35,24 +58,10 @@ import org.fusesource.mop.support.Database;
 import org.fusesource.mop.support.Logger;
 import org.fusesource.mop.support.MethodCommandDefinition;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.StringReader;
-import java.io.PrintWriter;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.*;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
+import com.google.common.base.Nullable;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Sets;
 
 /**
  * Runs a Java class from an artifact loaded from the local maven repository
@@ -861,6 +870,8 @@ public class MOP extends AbstractCli {
         // TODO it would be better to auto-discover these from the package!!!
         registerCommandMethods(new Install());
         registerCommandMethods(new Fork());
+        registerCommandMethods(new ServiceMix());
+        registerCommandMethods(new Shell());
     }
 
     private void registerCommandMethods(Object commandObject) {
