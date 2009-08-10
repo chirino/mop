@@ -11,7 +11,7 @@ import org.codehaus.plexus.archiver.ArchiverException;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
-import org.fusesource.mop.Option;
+import org.fusesource.mop.Optional;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.Lookup;
 import org.fusesource.mop.Artifacts;
@@ -29,7 +29,7 @@ import java.util.List;
 public class Install implements ConfiguresMop {
     private static final transient Log LOG = LogFactory.getLog(Install.class);
 
-    @Option
+    @Optional
     private boolean failIfNotExit = false;
 
     @Lookup

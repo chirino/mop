@@ -61,6 +61,7 @@ public class Fork {
 
         List<String> newArgs = Lists.newArrayList();
         newArgs.add("java");
+        mop.addSystemProperties(newArgs);
         newArgs.add("-cp");
         newArgs.add(classpath);
         newArgs.add(MOP.class.getName());

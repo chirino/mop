@@ -22,13 +22,6 @@
     <usage><![CDATA[ [<warArtifact(s)>] [<jettyArgument(s)>]]></usage>
   </command>
 
-  <command name="cloudmix-agent" alias="jar org.fusesource.cloudmix:org.fusesource.cloudmix.agent.mop:${version}">
-    <description>
-      Starts a CloudMix agent
-    </description>
-    <usage><![CDATA[ [cloudmixUrl] [profile] [workDir] ]]></usage>
-  </command>
-
   <command name="karaf" alias="jar org.apache.felix:karaf-main ${artifacts}">
     <description>
       Starts an embedded Karaf container and deploys the given artifact(s) inside it

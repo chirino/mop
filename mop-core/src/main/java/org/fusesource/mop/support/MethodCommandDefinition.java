@@ -9,12 +9,15 @@ package org.fusesource.mop.support;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.fusesource.mop.Artifacts;
 import org.fusesource.mop.Description;
 import org.fusesource.mop.Lookup;
 import org.fusesource.mop.MOP;
-import org.fusesource.mop.Artifacts;
+import org.fusesource.mop.Optional;
+import org.fusesource.mop.ProcessRunner;
 
 import java.io.File;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -53,7 +56,7 @@ public class MethodCommandDefinition extends CommandDefinition {
     }
 
     @Override
-    public void executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
+    public ProcessRunner executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
         // lets inject fields
         for (Class<? extends Object> beanType = bean.getClass(); beanType != Object.class; beanType = beanType.getSuperclass()) {
             Field[] fields = beanType.getDeclaredFields();
@@ -73,26 +76,37 @@ public class MethodCommandDefinition extends CommandDefinition {
         Class<?>[] paramTypes = method.getParameterTypes();
         int size = paramTypes.length;
         Object[] args = new Object[size];
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
 
-        
+
         for (int i = 0; i < size; i++) {
-            if (argList.isEmpty()) {
-                throw new Exception("missing argument!");
-            }
             Class<?> paramType = paramTypes[i];
             if (MOP.class.isAssignableFrom(paramType)) {
                 args[i] = mop;
-            } else if (Artifacts.class.isAssignableFrom(paramType)) {
-                args[i] = mop.getArtifacts(argList);
             } else if (Iterable.class.isAssignableFrom(paramType)) {
                 // lets assume its the command arguments
                 args[i] = argList;
-            } else if (paramType == File.class) {
-                args[i] = new File(argList.removeFirst());
-            } else if (paramType == String.class) {
-                args[i] = new File(argList.removeFirst());
             } else {
-                throw new Exception("Unable to inject type " + paramType.getName() + " from arguments " + argList + " for method " + method);
+                if (argList.isEmpty()) {
+                    // lets look and see if we should allow a null
+                    Annotation[] annotations = parameterAnnotations[i];
+                    if (isOptionalValue(annotations)) {
+                        continue;
+                    }
+                    // TODO we need to find the name of the parameter to log better!
+                    throw new Exception("missing argument!");
+                }
+
+                // now lets extract the actual arguments
+                if (Artifacts.class.isAssignableFrom(paramType)) {
+                    args[i] = mop.getArtifacts(argList);
+                } else if (paramType == File.class) {
+                    args[i] = new File(argList.removeFirst());
+                } else if (paramType == String.class) {
+                    args[i] = argList.removeFirst();
+                } else {
+                    throw new Exception("Unable to inject type " + paramType.getName() + " from arguments " + argList + " for method " + method);
+                }
             }
 
         }
@@ -102,10 +116,29 @@ public class MethodCommandDefinition extends CommandDefinition {
             configuresMop.configure(mop);
         }
         try {
-            method.invoke(bean, args);
+            Object value = method.invoke(bean, args);
+            if (value instanceof ProcessRunner) {
+                return (ProcessRunner) value;
+            } else if (value != null) {
+                LOG.warn("Could not convert return value: " + value + " of type " + value.getClass().getName() + " to a ProcessRunner");
+            }
+            return null;
         } catch (Exception e) {
             LOG.error("Failed to invoke " + method + " with args " + Arrays.asList(args) + " due to: " + e, e);
             throw e;
         }
+    }
+
+    /**
+     * Returns true if the parameter is annotated as being optional
+     */
+    protected boolean isOptionalValue(Annotation[] annotations) {
+        for (Annotation annotation : annotations) {
+            if (annotation instanceof Optional) {
+                return true;
+            }
+        }
+        return false;
+
     }
 }

@@ -9,6 +9,7 @@ package org.fusesource.mop.support;
 
 import org.codehaus.plexus.PlexusContainer;
 import org.fusesource.mop.MOP;
+import org.fusesource.mop.ProcessRunner;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -94,7 +95,7 @@ public class CommandDefinition {
         this.name = name;
     }
 
-    public void executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
+    public ProcessRunner executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
         this.mop = mop;
 
         PlexusContainer container = mop.getContainer();
@@ -122,7 +123,7 @@ public class CommandDefinition {
         }
 
         LOG.info("About to execute: " + newArguments);
-        mop.processCommandLine(newArguments);
+        return mop.processCommandLine(newArguments);
     }
 
 

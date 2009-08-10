@@ -13,14 +13,15 @@ import static java.lang.annotation.ElementType.METHOD;
 import java.lang.annotation.Retention;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import java.lang.annotation.Target;
+import java.lang.annotation.ElementType;
 
 /**
- * Marks a field as being an optional flag
+ * Marks a field or parameter as being an optional flag
  *
  * @version $Revision: 1.1 $
  */
-@Target({METHOD, FIELD})
+@Target({METHOD, FIELD, ElementType.PARAMETER})
 @Retention(RUNTIME)
 @Documented
-public @interface Option {
+public @interface Optional {
 }

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.prefs.Preferences;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -51,6 +52,7 @@ import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
 import org.fusesource.mop.commands.ServiceMix;
 import org.fusesource.mop.commands.Shell;
+import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
@@ -62,6 +64,7 @@ import com.google.common.base.Nullable;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Maps;
 
 /**
  * Runs a Java class from an artifact loaded from the local maven repository
@@ -90,6 +93,7 @@ public class MOP extends AbstractCli {
     private File workingDirectory;
     private ProcessRunner processRunner;
     private boolean transitive = true;
+    private Map<String,String> systemProperties = Maps.newHashMap();
 
     public static void main(String[] args) {
         MOP mop = new MOP();
@@ -247,18 +251,18 @@ public class MOP extends AbstractCli {
         }
     }
 
-    public void processCommandLine(LinkedList<String> argList) throws Exception {
+    public ProcessRunner processCommandLine(LinkedList<String> argList) throws Exception {
         resetValues();
 
         if (argList.isEmpty()) {
             displayHelp();
-            return;
+            return null;
         }
         String command = argList.removeFirst();
         if (command.equals("exec")) {
-            execJava(argList);
+            return execJava(argList);
         } else if (command.equals("execjar")) {
-            execJarCommand(argList);
+            return execJarCommand(argList);
         } else if (command.equals("jar")) {
             jarCommand(argList);
         } else if (command.equals("run")) {
@@ -278,8 +282,9 @@ public class MOP extends AbstractCli {
         } else if (command.equals("uninstall")) {
             uninstallCommand(argList);
         } else {
-            tryDiscoverCommand(command, argList);
+            return tryDiscoverCommand(command, argList);
         }
+        return null;
     }
 
     protected void resetValues() {
@@ -289,6 +294,9 @@ public class MOP extends AbstractCli {
         defaultType = DEFAULT_TYPE;
         workingDirectory = new File(System.getProperty("user.dir"));
         transitive = true;
+
+        // lets not clear the system properties as they tend to be expected to flow through to the next invocation...
+        //systemProperties.clear();
     }
 
     private void uninstallCommand(LinkedList<String> argList) throws UsageException, IOException {
@@ -361,7 +369,7 @@ public class MOP extends AbstractCli {
         }
     }
 
-    protected void tryDiscoverCommand(String commandText, LinkedList<String> argList) throws Exception {
+    protected ProcessRunner tryDiscoverCommand(String commandText, LinkedList<String> argList) throws Exception {
         checkCommandsLoaded();
 
         defaultVersion = DEFAULT_VERSION;
@@ -378,7 +386,7 @@ public class MOP extends AbstractCli {
         if (command == null) {
             throw new UsageException("Unknown command '" + commandText + "'");
         }
-        command.executeCommand(this, argList);
+        return command.executeCommand(this, argList);
     }
 
     protected void helpCommand(LinkedList<String> argList) {
@@ -431,12 +439,23 @@ public class MOP extends AbstractCli {
     protected ProcessRunner execClass(List<File> dependencies) throws Exception {
         List<String> commandLine = new ArrayList<String>();
         commandLine.add("java");
+        addSystemProperties(commandLine);
         commandLine.add("-cp");
         commandLine.add(classpath(dependencies));
         commandLine.add(className);
         commandLine.addAll(reminingArgs);
 
         return exec(commandLine);
+    }
+
+    /**
+     * Appends the currently defined system properties to this command line as a series of <code>-Dname=value</code> parameters
+     */
+    public void addSystemProperties(List<String> commandLine) {
+        Set<Map.Entry<String, String>> entries = systemProperties.entrySet();
+        for (Map.Entry<String, String> entry : entries) {
+            commandLine.add("-D" + entry.getKey() +"=" + entry.getValue());
+        }
     }
 
     public ProcessRunner exec(List<String> commandLine) throws Exception {
@@ -484,7 +503,7 @@ public class MOP extends AbstractCli {
 
         LinkedList<String> newArgs = new LinkedList<String>();
         newArgs.add("jar");
-        newArgs.add("org.mortbay.jetty:jetty-runner:LATEST");
+        newArgs.add("org.mortbay.jetty:jetty-runner:RELEASE");
         newArgs.addAll(argList);
         for (File file : files) {
             newArgs.add(file.toString());
@@ -664,6 +683,22 @@ public class MOP extends AbstractCli {
             throw new UsageException("Invalid artifactId: " + value);
         }
         return id;
+    }
+
+    public Map<String, String> getSystemProperties() {
+        return systemProperties;
+    }
+
+    /**
+     * Adds the system property used for any child forked JVM if the value is not null else remove the property
+     */
+    public void setSystemProperty(String name, String value) {
+        if (value != null) {
+            systemProperties.put(name, value);
+        }
+        else {
+            systemProperties.remove(name);
+        }
     }
 
     static private class UsageException extends Exception {
@@ -868,8 +903,9 @@ public class MOP extends AbstractCli {
         registerDefaultCommand("help", "<command(s)>", "displays help summarising all of the commands or shows custom help for each command listed");
 
         // TODO it would be better to auto-discover these from the package!!!
-        registerCommandMethods(new Install());
+        registerCommandMethods(new CloudMixAgent());
         registerCommandMethods(new Fork());
+        registerCommandMethods(new Install());
         registerCommandMethods(new ServiceMix());
         registerCommandMethods(new Shell());
     }
