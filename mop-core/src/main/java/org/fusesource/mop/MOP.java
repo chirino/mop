@@ -695,6 +695,7 @@ public class MOP extends AbstractCli {
     public void setSystemProperty(String name, String value) {
         if (value != null) {
             systemProperties.put(name, value);
+            System.setProperty(name, value);
         }
         else {
             systemProperties.remove(name);
