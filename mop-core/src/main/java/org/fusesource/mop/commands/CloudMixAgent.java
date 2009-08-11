@@ -25,6 +25,9 @@ import java.util.List;
 public class CloudMixAgent {
     private static final transient Log LOG = LogFactory.getLog(CloudMixAgent.class);
 
+    @Optional
+    private String port = "0";
+
     /**
      * Starts a CloudMix agent
      */
@@ -41,6 +44,10 @@ public class CloudMixAgent {
         // TODO how to extract the version of this command???
         System.out.println("Version: " + mop.getDefaultVersion());
         commands.add("org.fusesource.cloudmix:org.fusesource.cloudmix.agent.mop.web:" + mop.getDefaultVersion());
+
+        // lets default the port
+        commands.add("--port");
+        commands.add(port);
 
         return mop.processCommandLine(commands);
     }
