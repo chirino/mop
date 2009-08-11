@@ -1,3 +1,5 @@
 activemq-data
 .mop
 apache-servicemix-*
+cloudmix-data
+*.log
