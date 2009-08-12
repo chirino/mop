@@ -111,6 +111,30 @@
         <enabled>true</enabled>
       </snapshots>
     </repository>
+    
+   <repository>
+     <id>open.iona.m2</id>
+     <name>Fusesource Open Source Community Release Repository</name>
+     <url>http://repo.fusesource.com/maven2</url>
+     <snapshots>
+       <enabled>false</enabled>
+     </snapshots>
+     <releases>
+       <enabled>true</enabled>
+     </releases>
+   </repository>
+   <repository>
+     <id>open.iona.m2-snapshot</id>
+     <name>Fusesource Open Source Community Snapshot Repository</name>
+     <url>http://repo.fusesource.com/maven2-snapshot</url>
+     <snapshots>
+       <enabled>true</enabled>
+     </snapshots>
+     <releases>
+       <enabled>false</enabled>
+     </releases>
+   </repository>
+       
   </repositories>
 
   <modules>
