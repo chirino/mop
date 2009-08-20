@@ -16,6 +16,7 @@ import org.apache.commons.logging.LogFactory;
 import org.codehaus.plexus.util.FileUtils;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
+import org.fusesource.mop.ProcessRunner;
 import org.fusesource.mop.support.ConfiguresMop;
 
 public class ServiceMix implements ConfiguresMop {
@@ -32,22 +33,33 @@ public class ServiceMix implements ConfiguresMop {
         mop.execute(new String[] {"install", "org.apache.servicemix:apache-servicemix:tar.gz:"+version, mop.getWorkingDirectory().getAbsolutePath()});
         
         File root = new File(mop.getWorkingDirectory().getAbsoluteFile() + "/apache-servicemix-" + version);
-        mop.execute(getCommand(root));
-           
+        
+        LOG.info(String.format("Starting ServiceMix %s", version));
+        final ProcessRunner runner = mop.exec(getCommand(root));
+        final ShutdownHook hook = new ShutdownHook(runner);
+        Runtime.getRuntime().addShutdownHook(hook);
+
         for (String param : params) {
             LOG.info(String.format("Deploying JBI artifact %s", param));
             File file = getFile(param);
             File deployFolder = getDeployFolder(root);
             FileUtils.copyFileToDirectory(file, deployFolder);            
         }
+
+        runner.join();
+        LOG.info("ServiceMix has been stopped");
+        
+        //ServiceMix instance has been stopped -- we no longer need the shutdown hook to kill it
+        Runtime.getRuntime().removeShutdownHook(hook);
     }
 
-    protected String[] getCommand(File root) {
-        if (version.startsWith("3")) {
-            return new String[] { "shell", root.getAbsolutePath() + "/bin/servicemix" };
-        } else {
-            return new String[] { "shell", root.getAbsolutePath() + "/bin/servicemix", "server" };
+    protected List<String> getCommand(File root) {
+        List<String> command = new LinkedList<String>();
+        command.add(root.getAbsolutePath() + "/bin/servicemix");
+        if (!version.startsWith("3")) {
+            command.add("server");
         }
+        return command;
     }
 
     protected File getDeployFolder(File root) {
@@ -67,5 +79,26 @@ public class ServiceMix implements ConfiguresMop {
     public void configure(MOP mop) {
         version = mop.getDefaultVersion();
         this.mop = mop;
+    }
+    
+    private final class ShutdownHook extends Thread {
+
+        private final ProcessRunner runner;
+
+        private ShutdownHook(ProcessRunner runner) {
+            super("MOP - ServiceMix shutdown hook thread");
+            setDaemon(true);
+            this.runner = runner;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                LOG.info("Killing the forked ServiceMix instance");
+                runner.kill();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 }

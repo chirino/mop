@@ -8,6 +8,7 @@
 package org.fusesource.mop.commands;
 
 import java.io.File;
+import java.util.List;
 
 import junit.framework.TestCase;
 
@@ -29,7 +30,7 @@ public class ServiceMixTest extends TestCase {
         };
     };
     
-    /* Uncomment this test when we figured out how to stop the container afterwards
+    /* long running test -- uncomment at your own risk ;)
     public void testCommandLine() throws Exception {
         System.setProperty("mop.base", "target");
         
@@ -59,15 +60,14 @@ public class ServiceMixTest extends TestCase {
         assertCommand(smx.getCommand(root));
         
         smx.configure(SMX4_MOP);
-        String[] command = smx.getCommand(root);
+        List<String> command = smx.getCommand(root);
         assertCommand(command);
-        assertEquals("ServiceMix 4 should be started in server mode", "server", command[2]);
+        assertEquals("ServiceMix 4 should be started in server mode", "server", command.get(1));
     }
 
-    private void assertCommand(String[] command) {
-        assertTrue("Requires at least two elements", command.length >= 2);
-        assertEquals("Use the MOP shell command", "shell", command[0]);
-        assertTrue("Run bin/servicemix", command[1].endsWith("bin/servicemix"));
+    private void assertCommand(List<String> command) {
+        assertTrue("Requires at least two elements", command.size() >= 1);
+        assertTrue("Run bin/servicemix", command.get(0).endsWith("bin/servicemix"));
     }
 
 }

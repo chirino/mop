@@ -1,3 +1,6 @@
 target
 *.i??
 .mop
+.classpath
+.project
+.settings
