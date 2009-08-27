@@ -172,8 +172,8 @@ public class Database {
 
                 explicityInstalledArtifacts.put(tx, mainArtifact, new LinkedHashSet<String>(artifiactIds));
                 for (String id : artifiactIds) {
-                    ArtifactId a = new ArtifactId();
-                    if (!a.strictParse(id)) {
+                    ArtifactId a = ArtifactId.strictParse(id);
+                    if (a==null) {
                         throw new IOException("Invalid artifact id: " + id);
                     }
                     HashSet<String> rc = artifacts.get(tx, id);
@@ -208,8 +208,8 @@ public class Database {
                 TreeSet<String> unused = new TreeSet<String>();
                 HashSet<String> artifiactIds = explicityInstalledArtifacts.remove(tx, mainArtifact);
                 for (String id : artifiactIds) {
-                    ArtifactId a = new ArtifactId();
-                    if (!a.strictParse(id)) {
+                    ArtifactId a = ArtifactId.strictParse(id);
+                    if (id==null) {
                         throw new IOException("Invalid artifact id: " + id);
                     }
                     HashSet<String> rc = artifacts.get(tx, id);

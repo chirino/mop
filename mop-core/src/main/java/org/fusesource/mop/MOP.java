@@ -77,22 +77,17 @@ public class MOP extends AbstractCli {
     public static final String DEFAULT_VERSION = "RELEASE";
     public static final String DEFAULT_TYPE = "jar";
 
+    private  MOPRepository repository = new MOPRepository();
     private Options options;
-    private String scope;
-    private String localRepo;
-    private String[] remoteRepos;
     private String className;
-    private boolean online = true;
 
     private List<ArtifactId> artifactIds;
     private List<String> reminingArgs;
     private Map<String, CommandDefinition> commands;
     private String defaultVersion = DEFAULT_VERSION;
     private String defaultType = DEFAULT_TYPE;
-    private PlexusContainer container;
     private File workingDirectory;
     private ProcessRunner processRunner;
-    private boolean transitive = true;
     private Map<String,String> systemProperties = Maps.newHashMap();
 
     public static void main(String[] args) {
@@ -110,7 +105,7 @@ public class MOP extends AbstractCli {
     public int executeAndWait(String[] args) {
         int answer = execute(args);
         if (processRunner != null) {
-            answer = processRunner.join();    
+            answer = processRunner.join();
         }
         return answer;
     }
@@ -180,6 +175,10 @@ public class MOP extends AbstractCli {
         };
     }
 
+    private Set<Artifact> resolveArtifacts() throws Exception {
+        return repository.resolveArtifacts(artifactIds);
+    }
+
     /**
      * Removes any newlines in the text so its one big line
      */
@@ -207,16 +206,15 @@ public class MOP extends AbstractCli {
     }
 
     public void invokePlexusComponent(CommandLine cli, PlexusContainer container) throws Exception {
-        this.container = container;
+        repository.setContainer(container);
         // lets process the options
         Logger.debug = cli.hasOption('X');
-        scope = cli.getOptionValue('s', "compile");
-        localRepo = cli.getOptionValue('l');
-        remoteRepos = cli.getOptionValues('r');
-        online = cli.hasOption('o');
-        online = !online;
-        Logger.debug("online mode: " + online);
+        repository.setScope(cli.getOptionValue('s', "compile"));
+        repository.setRemoteRepos(cli.getOptionValues('r'));
+        repository.setOnline(!cli.hasOption('o'));
+        Logger.debug("online mode: " + repository.isOnline());
 
+        String localRepo = cli.getOptionValue('l');
         if (localRepo == null) {
             if (System.getProperty("mop.base") != null) {
                 localRepo = System.getProperty("mop.base") + File.separator + "repository";
@@ -225,7 +223,7 @@ public class MOP extends AbstractCli {
                 LOG.warn("No mop.base property defined so setting local repo to: " + localRepo);
             }
         }
-
+        repository.setLocalRepo(new File(localRepo));
 
         // now the remaining command line args
         try {
@@ -293,7 +291,7 @@ public class MOP extends AbstractCli {
         defaultVersion = DEFAULT_VERSION;
         defaultType = DEFAULT_TYPE;
         workingDirectory = new File(System.getProperty("user.dir"));
-        transitive = true;
+        repository.setTransitive(true);
 
         // lets not clear the system properties as they tend to be expected to flow through to the next invocation...
         //systemProperties.clear();
@@ -301,71 +299,22 @@ public class MOP extends AbstractCli {
 
     private void uninstallCommand(LinkedList<String> argList) throws UsageException, IOException {
         artifactIds = parseArtifactList(argList);
-
-        Database database = new Database();
-        database.setDirectroy(new File(new File(localRepo), ".index"));
-        database.open(true);
-
-        StringBuilder error = new StringBuilder();
-        try {
-
-            for (ArtifactId artifactId : artifactIds) {
-                TreeSet<String> deps = database.listDependenants(artifactId.toString());
-                if( deps==null ) {
-                    error.append(artifactId.toString()+": is not installed.\n");
-                } else if( !deps.isEmpty() ) {
-                    error.append(artifactId.toString()+": is used by\n");
-                    for (String dep : deps) {
-                        error.append("  * "+dep+"\n");
-                    }
-                }
-            }
-
-            if( error.length()!=0 ) {
-                System.out.println(error);
-                return;
-            }
-
-            for (ArtifactId artifactId : artifactIds) {
-                TreeSet<String> unused = database.uninstall(artifactId.toString());
-                System.out.println("TODO:");
-                for (String dep : unused) {
-                    System.out.println(" rm "+dep);
-                    // TODO: need to remove these deps from the file system.
-                }
-            }
-
-        } finally {
-            database.close();
+        List<String> errorMessages = repository.uninstall(artifactIds);
+        for (String errorMessage : errorMessages) {
+            System.out.println(errorMessage);
         }
-
     }
-    
+
     private void listCommand(LinkedList<String> argList) throws UsageException, IOException {
         String type = "installed";
         if (!argList.isEmpty()) {
             type = argList.removeFirst();
         }
 
-        Database database = new Database();
-        database.setDirectroy(new File(new File(localRepo), ".index"));
-        database.open(true);
-        try {
-            if (type.equals("installed")) {
-                Set<String> list = database.listInstalled();
-                for (String s : list) {
-                    System.out.println(s);
-                }
-            } else if (type.equals("all")) {
-                Set<String> list = database.listAll();
-                for (String s : list) {
-                    System.out.println(s);
-                }
-            } else {
-                throw new UsageException("list all|installed");
-            }
-        } finally {
-            database.close();
+        this.artifactIds = parseArtifactList(argList);
+        Set<ArtifactId> artifactIds = repository.list(type);
+        for (ArtifactId a : artifactIds) {
+            System.out.println(a);
         }
     }
 
@@ -441,7 +390,7 @@ public class MOP extends AbstractCli {
         commandLine.add("java");
         addSystemProperties(commandLine);
         commandLine.add("-cp");
-        commandLine.add(classpath(dependencies));
+        commandLine.add(MOPRepository.classpathFiles(dependencies));
         commandLine.add(className);
         commandLine.addAll(reminingArgs);
 
@@ -490,7 +439,7 @@ public class MOP extends AbstractCli {
         reminingArgs = argList;
 
         // lets default the artiact to WAR and then find all the files and pass them in as a command line argumnet
-        List<File> files = resolveFiles(new Predicate<Artifact>() {
+        List<File> files = repository.resolveFiles(artifactIds, new Predicate<Artifact>() {
             public boolean apply(@Nullable Artifact artifact) {
                 String type = artifact.getType();
                 System.out.println("artifact: " + artifact + " has type: " + type);
@@ -554,8 +503,12 @@ public class MOP extends AbstractCli {
         runClass(dependencies);
     }
 
+    private List<File> resolveFiles() throws Exception {
+        return repository.resolveFiles(artifactIds);
+    }
+
     protected void runClass(List<File> dependencies) throws Exception {
-        URLClassLoader classLoader = createClassLoader(dependencies);
+        URLClassLoader classLoader = MOPRepository.createFileClassLoader(dependencies);
         Thread.currentThread().setContextClassLoader(classLoader);
 
         Logger.debug("Attempting to load class: " + className);
@@ -566,60 +519,12 @@ public class MOP extends AbstractCli {
         method.invoke(null, methodArgs);
     }
 
-    /**
-     * Returns a new class loader from the given dependencies
-     */
-    protected URLClassLoader createClassLoader(List<File> dependencies) throws MalformedURLException {
-        List<URL> urls = new ArrayList<URL>();
-        for (File file : dependencies) {
-            urls.add(file.toURL());
-        }
-
-        URL[] urlArray = urls.toArray(new URL[urls.size()]);
-        ClassLoader rootClassLoader = Object.class.getClassLoader();
-        URLClassLoader classLoader = new URLClassLoader(urlArray, rootClassLoader);
-        return classLoader;
-    }
-
     private void copyCommand(LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
         artifactIds = parseArtifactList(argList);
         assertNotEmpty(argList);
         File targetDir = new File(argList.removeFirst());
-        List<File> dependencies = resolveFiles();
-        if (!targetDir.isDirectory()) {
-            throw new IOException("target is not a directroy: " + targetDir);
-        }
-
-        for (File dependency : dependencies) {
-            Logger.debug("copying: " + dependency + " to " + targetDir);
-            FileInputStream is = new FileInputStream(dependency);
-            try {
-                FileOutputStream os = new FileOutputStream(new File(targetDir, dependency.getName()));
-                try {
-                    copy(is, os);
-                } finally {
-                    try {
-                        os.close();
-                    } catch (IOException ignore) {
-                    }
-                }
-            } finally {
-                try {
-                    is.close();
-                } catch (IOException ignore) {
-                }
-            }
-
-        }
-    }
-
-    private static void copy(InputStream is, OutputStream os) throws IOException {
-        byte buffer[] = new byte[1024 * 4];
-        int c;
-        while ((c = is.read(buffer)) > 0) {
-            os.write(buffer, 0, c);
-        }
+        repository.copy(artifactIds, targetDir);
     }
 
     private void classpathCommand(LinkedList<String> argList) throws Exception {
@@ -629,9 +534,7 @@ public class MOP extends AbstractCli {
     }
 
     public String classpath() throws Exception {
-        List<File> dependencies = resolveFiles();
-        String classpath = classpath(dependencies);
-        return classpath;
+        return repository.classpath(artifactIds);
     }
 
     private void echoCommand(LinkedList<String> argList) throws Exception {
@@ -643,22 +546,6 @@ public class MOP extends AbstractCli {
         }
         System.out.println();
     }
-
-    protected String classpath(List<File> files) {
-        StringBuilder buffer = new StringBuilder();
-        boolean first = true;
-        for (File file : files) {
-            if (first) {
-                first = false;
-            } else {
-                buffer.append(File.pathSeparator);
-            }
-            buffer.append(file);
-        }
-        String classPath = buffer.toString();
-        return classPath;
-    }
-
 
     private ArrayList<ArtifactId> parseArtifactList(LinkedList<String> values) throws UsageException {
         ArrayList<ArtifactId> rc = new ArrayList<ArtifactId>();
@@ -678,8 +565,8 @@ public class MOP extends AbstractCli {
     }
 
     public ArtifactId parseArtifactId(String value) throws UsageException {
-        ArtifactId id = new ArtifactId();
-        if (!id.parse(value, defaultVersion, defaultType)) {
+        ArtifactId id = ArtifactId.parse(value, defaultVersion, defaultType);
+        if (id==null) {
             throw new UsageException("Invalid artifactId: " + value);
         }
         return id;
@@ -714,170 +601,10 @@ public class MOP extends AbstractCli {
         }
     }
 
-    public List<File> resolveFiles() throws Exception {
-        return resolveFiles(Predicates.<Artifact>alwaysTrue());
-    }
-
-    public List<File> resolveFiles(Predicate<Artifact> filter) throws Exception {
-        Set<Artifact> artifacts = resolveArtifacts();
-
-        Predicate<Artifact> matchingArtifacts = Predicates.and(filter, new Predicate<Artifact>() {
-            public boolean apply(@Nullable Artifact artifact) {
-                String artifactScope = artifact.getScope();
-                return matchesScope(scope, artifactScope);
-            }
-        });
-
-        List<File> files = new ArrayList<File>();
-        for (Artifact a : artifacts) {
-            String artifactScope = a.getScope();
-            if (matchingArtifacts.apply(a)) {
-                File file = a.getFile();
-                files.add(file);
-                Logger.debug("    depends on: " + a.getGroupId() + " / " + a.getArtifactId() + " / " + a.getVersion() + " scope: " + artifactScope + " file: " + file);
-            } else {
-                Logger.debug("    not in scope: " + a.getGroupId() + " / " + a.getArtifactId() + " / " + a.getVersion() + " scope: " + artifactScope);
-            }
-
-        }
-        return files;
-    }
-
-    public Set<Artifact> resolveArtifacts() throws Exception {
-        LinkedHashSet<Artifact> artifacts = new LinkedHashSet<Artifact>();
-        for (ArtifactId id : artifactIds) {
-            artifacts.addAll(resolveArtifacts(id));
-        }
-        return artifacts;
-    }
 
     // Implementation methods
     //-------------------------------------------------------------------------
     
-    private Set<Artifact> resolveArtifacts(ArtifactId id) throws Exception, InvalidRepositoryException {
-        Logger.debug("Resolving artifact " + id);
-        Database database = new Database();
-        database.setDirectroy(new File(new File(localRepo), ".index"));
-        try {
-
-            RepositorySystem repositorySystem = (RepositorySystem) container.lookup(RepositorySystem.class);
-            List<ArtifactRepository> remoteRepoList = new ArrayList<ArtifactRepository>();
-            if (online) {
-                addDefaultRemoteRepos(repositorySystem, remoteRepoList);
-                if (remoteRepos != null) {
-                    int counter = 1;
-                    ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-                    DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
-                    for (String remoteRepo : remoteRepos) {
-                        String repoid = "repo" + (counter++);
-                        Logger.debug("Adding repository with id: " + id + " url: " + remoteRepo);
-                        ArtifactRepository repo = repositorySystem.createArtifactRepository(repoid, remoteRepo, layout, repositoryPolicy, repositoryPolicy);
-                        remoteRepoList.add(repo);
-                    }
-                }
-                remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
-            }
-
-            ArtifactRepository localRepository = (localRepo != null)
-                    ? repositorySystem.createLocalRepository(new File(localRepo))
-                    : repositorySystem.createDefaultLocalRepository();
-
-
-            if (online) {
-                database.open(false);
-
-                // Keep track that we are trying an install..
-                // If an install dies midway.. the repo will have partlly installed dependencies...
-                // we may want to continue the install??
-                database.beginInstall(id.toString());
-
-            } else {
-                database.open(true);
-
-                // Makes groupId optional.. we look it up in the database.
-                if (id.getGroupId() == null) {
-                    Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
-                    if (rc.isEmpty()) {
-                        throw new Exception("No artifacts with artifact id '" + id.getArtifactId() + "' are locally installed.");
-                    }
-                    if (rc.size() > 1) {
-                        System.out.println("Please use one of the following:");
-                        for (String s : rc.keySet()) {
-                            System.out.println("   " + s + ":" + id.getArtifactId());
-                        }
-                        throw new Exception("Multiple groups with artifact id '" + id.getArtifactId() + "' are locally installed.");
-                    }
-                    id.setGroupId(rc.keySet().iterator().next());
-                }
-
-
-                // We could auto figure out the classifier/type/version too..
-            }
-
-            Artifact artifact = repositorySystem.createArtifactWithClassifier(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType(), id.getClassifier());
-            ArtifactResolutionRequest request = new ArtifactResolutionRequest()
-                    .setArtifact(artifact)
-                    .setResolveRoot(true)
-                    .setResolveTransitively(isTransitive())
-                    .setLocalRepository(localRepository)
-                    .setRemoteRepostories(remoteRepoList);
-
-            ArtifactResolutionResult result = repositorySystem.resolve(request);
-
-            List<Artifact> list = result.getMissingArtifacts();
-            if (!list.isEmpty()) {
-                throw new Exception("The following artifacts could not be downloaded: " + list);
-            }
-
-            Set<Artifact> rc = result.getArtifacts();
-            if (online) {
-                // Have the DB index the installed the artifacts.
-                LinkedHashSet<String> installed = new LinkedHashSet<String>();
-                for (Artifact a : rc) {
-                    installed.add(a.getId());
-                }
-                database.install(installed);
-            }
-            return rc;
-
-        } finally {
-            if (online) {
-                database.installDone();
-            }
-            database.close();
-        }
-    }
-
-    /**
-     * Adds some default remote repositories
-     */
-    protected void addDefaultRemoteRepos(RepositorySystem repositorySystem, List<ArtifactRepository> remoteRepoList) {
-        ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-        DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
-
-        remoteRepoList.add(repositorySystem.createArtifactRepository("user.local.repo", "file://" + System.getProperty("user.home", ".") + "/.m2/repository", layout, repositoryPolicy, repositoryPolicy));
-
-        remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2", "http://repo.fusesource.com/maven2", layout, repositoryPolicy, repositoryPolicy));
-        remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot", layout, repositoryPolicy, repositoryPolicy));
-
-        // TODO we can remove these when we get consolidation of forge repos?
-        remoteRepoList.add(repositorySystem.createArtifactRepository("cloudmix.snapshot", "http://cloudmix.fusesource.org/repo/snapshot", layout, repositoryPolicy, repositoryPolicy));
-        remoteRepoList.add(repositorySystem.createArtifactRepository("cloudmix.release", "http://cloudmix.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
-        remoteRepoList.add(repositorySystem.createArtifactRepository("mop.snapshot", "http://mop.fusesource.org/repo/snapshot", layout, repositoryPolicy, repositoryPolicy));
-        remoteRepoList.add(repositorySystem.createArtifactRepository("mop.release", "http://mop.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
-    }
-
-
-    /**
-     * Returns true if the given artifactScope matches the current scope setting (which defaults to 'compile') to choose
-     * the exact dependencies to add to the classpath
-     */
-    protected boolean matchesScope(String scope, String artifactScope) {
-        // TODO is there a special Maven way to test this???
-        return artifactScope == null || artifactScope.equals(scope) || artifactScope.equals("compile") || artifactScope.equals("provided");
-    }
-
-
     void checkCommandsLoaded() {
         if (commands == null) {
             commands = CommandDefinitions.loadCommands(getClass().getClassLoader());
@@ -945,25 +672,12 @@ public class MOP extends AbstractCli {
 
     // Properties
     //-------------------------------------------------------------------------
-
-    public PlexusContainer getContainer() {
-        return container;
-    }
-
     public String getClassName() {
         return className;
     }
 
     public void setClassName(String className) {
         this.className = className;
-    }
-
-    public String getLocalRepo() {
-        return localRepo;
-    }
-
-    public void setLocalRepo(String localRepo) {
-        this.localRepo = localRepo;
     }
 
     public Options getOptions() {
@@ -985,22 +699,6 @@ public class MOP extends AbstractCli {
 
     public void setReminingArgs(List<String> reminingArgs) {
         this.reminingArgs = reminingArgs;
-    }
-
-    public String[] getRemoteRepos() {
-        return remoteRepos;
-    }
-
-    public void setRemoteRepos(String[] remoteRepos) {
-        this.remoteRepos = remoteRepos;
-    }
-
-    public String getScope() {
-        return scope;
-    }
-
-    public void setScope(String scope) {
-        this.scope = scope;
     }
 
     public List<ArtifactId> getArtifactIds() {
@@ -1027,22 +725,6 @@ public class MOP extends AbstractCli {
         this.defaultVersion = defaultVersion;
     }
 
-    public boolean isOnline() {
-        return online;
-    }
-
-    public void setOnline(boolean online) {
-        this.online = online;
-    }
-
-    public boolean isTransitive() {
-        return transitive;
-    }
-
-    public void setTransitive(boolean transitive) {
-        this.transitive = transitive;
-    }
-
     public ProcessRunner getProcessRunner() {
         return processRunner;
     }
@@ -1053,5 +735,61 @@ public class MOP extends AbstractCli {
 
     public void setWorkingDirectory(File workingDirectory) {
         this.workingDirectory = workingDirectory;
+    }
+
+    public void setTransitive(boolean transitive) {
+        repository.setTransitive(transitive);
+    }
+
+    public void setLocalRepo(File localRepo) {
+        repository.setLocalRepo(localRepo);
+    }
+
+    public void setOnline(boolean online) {
+        repository.setOnline(online);
+    }
+
+    public void setRemoteRepos(String[] remoteRepos) {
+        repository.setRemoteRepos(remoteRepos);
+    }
+
+    public void setScope(String scope) {
+        repository.setScope(scope);
+    }
+
+    public PlexusContainer getContainer() {
+        return repository.getContainer();
+    }
+
+    public File getLocalRepo() {
+        return repository.getLocalRepo();
+    }
+
+    public String[] getRemoteRepos() {
+        return repository.getRemoteRepos();
+    }
+
+    public String getScope() {
+        return repository.getScope();
+    }
+
+    public boolean isOnline() {
+        return repository.isOnline();
+    }
+
+    public boolean isTransitive() {
+        return repository.isTransitive();
+    }
+
+    public void setContainer(PlexusContainer container) {
+        repository.setContainer(container);
+    }
+
+    public MOPRepository getRepository() {
+        return repository;
+    }
+
+    public void setRepository(MOPRepository repository) {
+        this.repository = repository;
     }
 }

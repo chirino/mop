@@ -10,6 +10,7 @@ package org.fusesource.mop;
 import junit.framework.TestCase;
 import org.apache.maven.artifact.InvalidRepositoryException;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
+import org.fusesource.mop.support.ArtifactId;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -66,13 +67,16 @@ public class CommandLineTest extends TestCase {
     }
 
     protected void doRun(String... args) {
-        mavenRunner = new MOP() {
+        mavenRunner = new MOP();
+        mavenRunner.setRepository(new MOPRepository() {
             @Override
-            public List<File> resolveFiles() throws ComponentLookupException, InvalidRepositoryException {
+            public List<File> resolveFiles(List<ArtifactId> artifactIds) throws Exception {
                 System.out.println("We would be doing something now :)");
                 return new ArrayList<File>();
             }
-        };
+        });
+
+
         int rc = mavenRunner.execute(args);
         assertEquals(0, rc);
         

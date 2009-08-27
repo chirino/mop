@@ -23,49 +23,54 @@ public class ArtifactId {
     public ArtifactId() {
     }
 
-    public boolean parse(String value, String defaultVersion, String defaultType) {
-        type = defaultType;
-        version = defaultVersion;
+    static public ArtifactId parse(String value) {
+        return parse(value, MOP.DEFAULT_VERSION, MOP.DEFAULT_TYPE);
+    }
+    
+    static public ArtifactId parse(String value, String defaultVersion, String defaultType) {
+        ArtifactId rc = new ArtifactId();
+        rc.type = defaultType;
+        rc.version = defaultVersion;
         String parts[] = value.split(":");
         switch (parts.length) {
             case 1:
-                artifactId = parts[0];
-                return true;
+                rc.artifactId = parts[0];
+                return rc;
             case 2:
-                groupId = parts[0];
-                artifactId = parts[1];
-                return true;
+                rc.groupId = parts[0];
+                rc.artifactId = parts[1];
+                return rc;
             case 3:
-                groupId = parts[0];
-                artifactId = parts[1];
-                version = parts[2];
-                return true;
+                rc.groupId = parts[0];
+                rc.artifactId = parts[1];
+                rc.version = parts[2];
+                return rc;
             case 4:
-                groupId = parts[0];
-                artifactId = parts[1];
-                type = parts[2];
-                version = parts[3];
-                return true;
+                rc.groupId = parts[0];
+                rc.artifactId = parts[1];
+                rc.type = parts[2];
+                rc.version = parts[3];
+                return rc;
             case 5:
-                groupId = parts[0];
-                artifactId = parts[1];
-                type = parts[2];
-                classifier = parts[3];
-                version = parts[4];
-                return true;
+                rc.groupId = parts[0];
+                rc.artifactId = parts[1];
+                rc.type = parts[2];
+                rc.classifier = parts[3];
+                rc.version = parts[4];
+                return rc;
             default:
-                return false;
+                return null;
         }
     }
 
-    public boolean strictParse(String value) {
+    static public ArtifactId strictParse(String value) {
         String parts[] = value.split(":");
         switch (parts.length) {
             case 4:
             case 5:
                 return parse(value, MOP.DEFAULT_VERSION, MOP.DEFAULT_TYPE);
             default:
-                return false;
+                return null;
         }
     }
 
