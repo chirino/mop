@@ -336,7 +336,7 @@ public class MOPRepository {
                     .setResolveRoot(true)
                     .setResolveTransitively(isTransitive())
                     .setLocalRepository(localRepository)
-                    .setRemoteRepostories(remoteRepoList);
+                    .setRemoteRepositories(remoteRepoList);
 
             ArtifactResolutionResult result = repositorySystem.resolve(request);
 
