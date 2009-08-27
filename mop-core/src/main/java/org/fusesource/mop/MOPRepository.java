@@ -49,7 +49,7 @@ public class MOPRepository {
     public List<String> uninstall(List<ArtifactId> artifactIds) throws IOException {
 
         Database database = new Database();
-        database.setDirectroy(new File(localRepo, ".index"));
+        database.setDirectroy(new File(getLocalRepo(), ".index"));
         database.open(true);
 
         ArrayList<String> errorList = new ArrayList<String>();
@@ -105,7 +105,7 @@ public class MOPRepository {
 
         HashSet<ArtifactId> rc = new HashSet<ArtifactId>();
         Database database = new Database();
-        database.setDirectroy(new File(localRepo, ".index"));
+        database.setDirectroy(new File(getLocalRepo(), ".index"));
         database.open(true);
         try {
             if (type.equals("installed")) {
@@ -134,24 +134,33 @@ public class MOPRepository {
     /**
      * Returns a new class loader from the given dependencies
      */
-    public URLClassLoader createArtifactClassLoader(List<ArtifactId> artifactIds) throws Exception {
-        return createFileClassLoader(resolveFiles(artifactIds));
+    public URLClassLoader createArtifactClassLoader(ClassLoader parent, List<ArtifactId> artifactIds) throws Exception {
+        return createFileClassLoader(parent, resolveFiles(artifactIds));
     }
+
+    /**
+     * Returns a new class loader from the given dependencies
+     */
+    public URLClassLoader createArtifactClassLoader(ClassLoader parent, ArtifactId... artifactIds) throws Exception {
+        return createFileClassLoader(parent, resolveFiles(artifactIds));
+    }
+
 
     /**
      }
      * Returns a new class loader from the given dependencies
      */
-    public static URLClassLoader createFileClassLoader(List<File> dependencies) throws MalformedURLException {
+    public static URLClassLoader createFileClassLoader(ClassLoader parent, List<File> dependencies) throws MalformedURLException {
         List<URL> urls = new ArrayList<URL>();
         for (File file : dependencies) {
             urls.add(file.toURL());
         }
 
         URL[] urlArray = urls.toArray(new URL[urls.size()]);
-        ClassLoader rootClassLoader = Object.class.getClassLoader();
-        URLClassLoader classLoader = new URLClassLoader(urlArray, rootClassLoader);
-        return classLoader;
+        if ( parent==null ) {
+            parent = Object.class.getClassLoader();
+        }
+        return  new URLClassLoader(urlArray, parent);
     }
 
     public void copy(List<ArtifactId> artifactIds, File targetDir) throws Exception {
@@ -264,7 +273,7 @@ public class MOPRepository {
     private Set<Artifact> resolveArtifacts(ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
         Database database = new Database();
-        database.setDirectroy(new File(localRepo, ".index"));
+        database.setDirectroy(new File(getLocalRepo(), ".index"));
         try {
 
             RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
@@ -285,8 +294,8 @@ public class MOPRepository {
                 remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
             }
 
-            ArtifactRepository localRepository = (localRepo != null)
-                    ? repositorySystem.createLocalRepository(localRepo)
+            ArtifactRepository localRepository = (getLocalRepo() != null)
+                    ? repositorySystem.createLocalRepository(getLocalRepo())
                     : repositorySystem.createDefaultLocalRepository();
 
 
@@ -410,6 +419,14 @@ public class MOPRepository {
     }
 
     public File getLocalRepo() {
+        if( localRepo == null ) {
+            if (System.getProperty("mop.base") != null) {
+                localRepo = new File(System.getProperty("mop.base") + File.separator + "repository");
+            } else {
+                localRepo = new File(".mop" + File.separator + "repository");
+                LOG.warn("No mop.base property defined so setting local repo to: " + localRepo);
+            }
+        }
         return localRepo;
     }
 

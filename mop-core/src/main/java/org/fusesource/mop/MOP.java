@@ -211,19 +211,14 @@ public class MOP extends AbstractCli {
         Logger.debug = cli.hasOption('X');
         repository.setScope(cli.getOptionValue('s', "compile"));
         repository.setRemoteRepos(cli.getOptionValues('r'));
+        
         repository.setOnline(!cli.hasOption('o'));
         Logger.debug("online mode: " + repository.isOnline());
 
         String localRepo = cli.getOptionValue('l');
-        if (localRepo == null) {
-            if (System.getProperty("mop.base") != null) {
-                localRepo = System.getProperty("mop.base") + File.separator + "repository";
-            } else {
-                localRepo = ".mop" + File.separator + "repository";
-                LOG.warn("No mop.base property defined so setting local repo to: " + localRepo);
-            }
+        if (localRepo != null) {
+            repository.setLocalRepo(new File(localRepo));
         }
-        repository.setLocalRepo(new File(localRepo));
 
         // now the remaining command line args
         try {
@@ -508,7 +503,7 @@ public class MOP extends AbstractCli {
     }
 
     protected void runClass(List<File> dependencies) throws Exception {
-        URLClassLoader classLoader = MOPRepository.createFileClassLoader(dependencies);
+        URLClassLoader classLoader = MOPRepository.createFileClassLoader(null, dependencies);
         Thread.currentThread().setContextClassLoader(classLoader);
 
         Logger.debug("Attempting to load class: " + className);
