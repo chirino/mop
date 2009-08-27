@@ -820,7 +820,7 @@ public class MOP extends AbstractCli {
                     .setResolveRoot(true)
                     .setResolveTransitively(isTransitive())
                     .setLocalRepository(localRepository)
-                    .setRemoteRepositories(remoteRepoList);
+                    .setRemoteRepostories(remoteRepoList);
 
             ArtifactResolutionResult result = repositorySystem.resolve(request);
 
