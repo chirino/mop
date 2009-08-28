@@ -103,7 +103,6 @@ public class Database {
         }
     }
 
-
     public void close() throws IOException {
         try {
             // TODO is this valid?
@@ -120,8 +119,10 @@ public class Database {
         } finally {
             if (!readOnly) {
                 copy(getUpdateFile(), getReadOnlyFile());
-                lock.unlock();
-                lock = null;
+                if (lock != null) {
+                    lock.unlock();
+                    lock = null;
+                }
             }
         }
     }
@@ -173,7 +174,7 @@ public class Database {
                 explicityInstalledArtifacts.put(tx, mainArtifact, new LinkedHashSet<String>(artifiactIds));
                 for (String id : artifiactIds) {
                     ArtifactId a = ArtifactId.strictParse(id);
-                    if (a==null) {
+                    if (a == null) {
                         throw new IOException("Invalid artifact id: " + id);
                     }
                     HashSet<String> rc = artifacts.get(tx, id);
@@ -209,7 +210,7 @@ public class Database {
                 HashSet<String> artifiactIds = explicityInstalledArtifacts.remove(tx, mainArtifact);
                 for (String id : artifiactIds) {
                     ArtifactId a = ArtifactId.strictParse(id);
-                    if (id==null) {
+                    if (id == null) {
                         throw new IOException("Invalid artifact id: " + id);
                     }
                     HashSet<String> rc = artifacts.get(tx, id);
@@ -234,7 +235,6 @@ public class Database {
     private void indexRemove(Transaction tx, BTreeIndex<String, HashSet<String>> artifactIdIndex, String id, String artifactId) {
     }
 
-
     public Set<String> findByArtifactId(final String artifactId) throws IOException {
         assertOpen();
         return pageFile.tx().execute(new Transaction.CallableClosure<Set<String>, IOException>() {
@@ -246,7 +246,6 @@ public class Database {
             }
         });
     }
-
 
     public static Map<String, Set<String>> groupByGroupId(Set<String> values) {
         Map<String, Set<String>> rc = new LinkedHashMap<String, Set<String>>();
@@ -274,7 +273,6 @@ public class Database {
             }
         });
     }
-
 
     public TreeSet<String> listAll() throws IOException {
         assertOpen();
@@ -329,7 +327,6 @@ public class Database {
             }
         });
     }
-
 
     ///////////////////////////////////////////////////////////////////
     // helper methods
@@ -421,7 +418,6 @@ public class Database {
     public void setDirectroy(File directroy) {
         this.directroy = directroy;
     }
-
 
     ///////////////////////////////////////////////////////////////////
     // Helper Classes
