@@ -272,7 +272,6 @@ public class MOPRepository {
 
     private Set<Artifact> resolveArtifacts(ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
-        System.out.println("Resolving artifact " + id);
         Database database = new Database();
         database.setDirectroy(new File(getLocalRepo(), ".index"));
         try {
