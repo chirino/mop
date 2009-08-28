@@ -69,7 +69,7 @@ public class Database {
             pageFile.setEnableWriteThread(false);
             pageFile.setEnableRecoveryFile(false);
         } else {
-            lock = new LockFile(getUpdateFile(), false);
+            lock = new LockFile(getLockFile(), true);
             lock();
             pageFile = new PageFile(directroy, "update");
             pageFile.setEnableWriteThread(false);
@@ -347,7 +347,7 @@ public class Database {
     }
 
     private void initialize() throws IOException {
-        lock = new LockFile(getUpdateFile(), false);
+        lock = new LockFile(getLockFile(), true);
         lock();
         try {
             // Now that we have the lock.. lets check again..
@@ -366,7 +366,6 @@ public class Database {
                 }
             });
             pageFile.flush();
-            ;
             pageFile.unload();
             pageFile = null;
 
@@ -394,6 +393,10 @@ public class Database {
         } finally {
             in.close();
         }
+    }
+
+    private File getLockFile() {
+        return new File(directroy, ".lock");
     }
 
     private File getUpdateFile() {
