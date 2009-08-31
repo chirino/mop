@@ -88,18 +88,19 @@
             <enabled>true</enabled>
           </snapshots>
         </repository>
-        <repository>
-          <id>public.sonatype</id>
-          <name>Sonatype Public Repository</name>
-          <url>http://repository.sonatype.org/content/groups/public</url>
-          <releases>
-            <enabled>true</enabled>
-          </releases>
-          <snapshots>
-            <enabled>false</enabled>
-          </snapshots>
-        </repository>
     -->
+    <repository>
+      <id>public.sonatype</id>
+      <name>Sonatype Public Repository</name>
+      <url>http://repository.sonatype.org/content/groups/public</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+    
     <repository>
       <id>mvneclipse.sonatype</id>
       <name>Sonatype maven-eclipse Repository</name>
