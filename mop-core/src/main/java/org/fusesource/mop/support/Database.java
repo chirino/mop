@@ -10,6 +10,7 @@ package org.fusesource.mop.support;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kahadb.index.BTreeIndex;
+import org.apache.kahadb.index.BTreeVisitor;
 import org.apache.kahadb.page.Page;
 import org.apache.kahadb.page.PageFile;
 import org.apache.kahadb.page.Transaction;
@@ -28,13 +29,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.nio.channels.FileChannel;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * @author chirino
@@ -246,6 +241,33 @@ public class Database {
             }
         });
     }
+
+    public Set<String> findByArtifactsStartingWith(final String value) throws IOException {
+        assertOpen();
+        return pageFile.tx().execute(new Transaction.CallableClosure<Set<String>, IOException>() {
+            public Set<String> execute(Transaction tx) throws IOException {
+                RootEntity root = RootEntity.load(tx);
+                BTreeIndex<String, HashSet<String>> artifacts = root.artifacts.get(tx);
+
+                final HashSet<String> rc = new HashSet<String>();
+                artifacts.visit(tx, new BTreeVisitor<String, HashSet<String>>(){
+                    public boolean isInterestedInKeysBetween(String first, String second) {
+                        return (second==null || second.compareTo(value)>=0 || second.startsWith(value) )
+                               && (first==null || first.compareTo(value)<0 || first.startsWith(value) );
+                    }
+                    public void visit(List<String> keys, List<HashSet<String>> values) {
+                        for (String key : keys) {
+                            if( key.startsWith(value) ) {
+                                rc.add(key);
+                            }
+                        }
+                    }
+                });
+                return rc;
+            }
+        });
+    }
+
 
     public static Map<String, Set<String>> groupByGroupId(Set<String> values) {
         Map<String, Set<String>> rc = new LinkedHashMap<String, Set<String>>();

@@ -14,12 +14,18 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.InvalidRepositoryException;
+import org.apache.maven.artifact.metadata.ArtifactMetadata;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
+import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
+import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
+import org.apache.maven.artifact.resolver.ResolutionListener;
 import org.apache.maven.repository.RepositorySystem;
+import org.apache.maven.repository.UserLocalArtifactRepository;
+import org.apache.maven.repository.Proxy;
 import org.codehaus.plexus.*;
 import org.codehaus.plexus.classworlds.ClassWorld;
 import org.fusesource.mop.support.ArtifactId;
@@ -49,8 +55,7 @@ public class MOPRepository {
 
     public List<String> uninstall(List<ArtifactId> artifactIds) throws IOException {
 
-        Database database = new Database();
-        database.setDirectroy(new File(getLocalRepo(), ".index"));
+        Database database = createDatabase();
         database.open(true);
 
         ArrayList<String> errorList = new ArrayList<String>();
@@ -105,8 +110,7 @@ public class MOPRepository {
         }
 
         HashSet<ArtifactId> rc = new HashSet<ArtifactId>();
-        Database database = new Database();
-        database.setDirectroy(new File(getLocalRepo(), ".index"));
+        Database database = createDatabase();
         database.open(true);
         try {
             if (type.equals("installed")) {
@@ -272,8 +276,7 @@ public class MOPRepository {
 
     private Set<Artifact> resolveArtifacts(ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
-        Database database = new Database();
-        database.setDirectroy(new File(getLocalRepo(), ".index"));
+        Database database = createDatabase();
         try {
 
             RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
@@ -294,15 +297,33 @@ public class MOPRepository {
                 remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
             }
 
-            ArtifactRepository localRepository = (getLocalRepo() != null) ? repositorySystem.createLocalRepository(getLocalRepo()) : repositorySystem.createDefaultLocalRepository();
+            ArtifactRepository localRepository = createLocalRepository(repositorySystem, "mop.local", getLocalRepo().getAbsolutePath(), false);
 
             if (online) {
                 database.open(false);
+
+                // Makes groupId optional.. we look it up in the database.
+                if (id.getGroupId() == null) {
+                    Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
+                    if (rc.isEmpty()) {
+                        throw new Exception("Please qualify a group id: No local artifacts match: "+id);
+                    }
+                    if (rc.size() > 1) {
+                        System.out.println("Local artifacts that match:");
+                        for (String s : rc.keySet()) {
+                            System.out.println("   " + s + ":" + id.getArtifactId());
+                        }
+                        throw new Exception("Please qualify a group id: Multiple local artifacts match: "+id);
+                    }
+                    id.setGroupId(rc.keySet().iterator().next());
+                }
 
                 // Keep track that we are trying an install..
                 // If an install dies midway.. the repo will have partlly installed dependencies...
                 // we may want to continue the install??
                 database.beginInstall(id.toString());
+
+
 
             } else {
                 database.open(true);
@@ -311,14 +332,14 @@ public class MOPRepository {
                 if (id.getGroupId() == null) {
                     Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
                     if (rc.isEmpty()) {
-                        throw new Exception("No artifacts with artifact id '" + id.getArtifactId() + "' are locally installed.");
+                        throw new Exception("Please qualify a group id: No local artifacts match: "+id);
                     }
                     if (rc.size() > 1) {
-                        System.out.println("Please use one of the following:");
+                        System.out.println("Local artifacts that match:");
                         for (String s : rc.keySet()) {
                             System.out.println("   " + s + ":" + id.getArtifactId());
                         }
-                        throw new Exception("Multiple groups with artifact id '" + id.getArtifactId() + "' are locally installed.");
+                        throw new Exception("Please qualify a group id: Multiple local artifacts match: "+id);
                     }
                     id.setGroupId(rc.keySet().iterator().next());
                 }
@@ -360,6 +381,12 @@ public class MOPRepository {
         }
     }
 
+    protected Database createDatabase() {
+        Database database = new Database();
+        database.setDirectroy(new File(getLocalRepo(), ".index"));
+        return database;
+    }
+
     /**
      * Adds some default remote repositories
      * 
@@ -367,17 +394,14 @@ public class MOPRepository {
      * @param remoteRepoList
      */
     protected void addDefaultRemoteRepos(RepositorySystem repositorySystem, List<ArtifactRepository> remoteRepoList) {
-        ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-        DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
 
-        //Always check local repo for updates:
-        ArtifactRepositoryPolicy localPolicy = new ArtifactRepositoryPolicy();
-        if (alwaysCheckUserLocalRepo) {
-            localPolicy = new ArtifactRepositoryPolicy();
-            localPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
-        }
-        localPolicy.setChecksumPolicy(ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE);
-        remoteRepoList.add(repositorySystem.createArtifactRepository("user.local.repo", "file://" + System.getProperty("user.home", ".") + "/.m2/repository", layout, localPolicy, localPolicy));
+        String mavenRepositoryDir = System.getProperty("user.home", ".") + "/.m2/repository";
+        remoteRepoList.add(createLocalRepository(repositorySystem, "local", mavenRepositoryDir, true));
+
+        DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
+        ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
+        repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
+
         
         remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2", "http://repo.fusesource.com/maven2", layout, repositoryPolicy, repositoryPolicy));
         remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot", layout, repositoryPolicy, repositoryPolicy));
@@ -387,6 +411,31 @@ public class MOPRepository {
         remoteRepoList.add(repositorySystem.createArtifactRepository("cloudmix.release", "http://cloudmix.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
         remoteRepoList.add(repositorySystem.createArtifactRepository("mop.snapshot", "http://mop.fusesource.org/repo/snapshot", layout, repositoryPolicy, repositoryPolicy));
         remoteRepoList.add(repositorySystem.createArtifactRepository("mop.release", "http://mop.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
+    }
+
+    private ArtifactRepository createLocalRepository(RepositorySystem repositorySystem, String id, String path, boolean asRemote) {
+        // This hack needed since the local repo is being accessed as a remote repo.
+        final ArtifactRepository localRepository[] = new ArtifactRepository[1];
+        DefaultRepositoryLayout layout = null;
+        if (asRemote) {
+            layout = new DefaultRepositoryLayout() {
+                @Override
+                public String pathOfRemoteRepositoryMetadata(ArtifactMetadata metadata) {
+                    return super.pathOfLocalRepositoryMetadata(metadata, localRepository[0]);
+                }
+            };
+        }
+
+        //Always check local repo for updates:
+        ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
+        if (alwaysCheckUserLocalRepo) {
+            repositoryPolicy = new ArtifactRepositoryPolicy();
+            repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
+        }
+        repositoryPolicy.setChecksumPolicy(ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE);
+        localRepository[0] = repositorySystem.createArtifactRepository(id, "file://" + path, layout, repositoryPolicy, repositoryPolicy);
+        ArtifactRepository repository = localRepository[0];
+        return repository;
     }
 
     /**
