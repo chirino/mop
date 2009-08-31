@@ -45,7 +45,8 @@ public class MOPRepository {
     private String[] remoteRepos;
     private boolean online = true;
     private boolean transitive = true;
-    
+    private boolean alwaysCheckUserLocalRepo = false;
+
     public List<String> uninstall(List<ArtifactId> artifactIds) throws IOException {
 
         Database database = new Database();
@@ -57,19 +58,19 @@ public class MOPRepository {
 
             for (ArtifactId artifactId : artifactIds) {
                 TreeSet<String> deps = database.listDependenants(artifactId.toString());
-                if( deps==null ) {
-                    errorList.add(artifactId.toString()+": is not installed.\n");
-                } else if( !deps.isEmpty() ) {
+                if (deps == null) {
+                    errorList.add(artifactId.toString() + ": is not installed.\n");
+                } else if (!deps.isEmpty()) {
                     StringBuilder sb = new StringBuilder();
-                    sb.append(artifactId.toString()+": is used by\n");
+                    sb.append(artifactId.toString() + ": is used by\n");
                     for (String dep : deps) {
-                        sb.append("  * "+dep+"\n");
+                        sb.append("  * " + dep + "\n");
                     }
                     errorList.add(sb.toString());
                 }
             }
 
-            if( !errorList.isEmpty() ) {
+            if (!errorList.isEmpty()) {
                 return errorList;
             }
 
@@ -77,7 +78,7 @@ public class MOPRepository {
                 TreeSet<String> unused = database.uninstall(artifactId.toString());
                 System.out.println("TODO:");
                 for (String dep : unused) {
-                    System.out.println(" rm "+dep);
+                    System.out.println(" rm " + dep);
                     // TODO: need to remove these deps from the file system.
                 }
             }
@@ -90,16 +91,16 @@ public class MOPRepository {
     }
 
     /**
-     * Provides a listing of all mop installed artifacts.  The type arguement
-     * can be either "all" or "installed".
-     *
+     * Provides a listing of all mop installed artifacts. The type arguement can
+     * be either "all" or "installed".
+     * 
      * @param type
      * @return
      * @throws IllegalArgumentException
      * @throws IOException
      */
     public Set<ArtifactId> list(String type) throws IllegalArgumentException, IOException {
-        if( type == null ) {
+        if (type == null) {
             type = "installed";
         }
 
@@ -145,10 +146,8 @@ public class MOPRepository {
         return createFileClassLoader(parent, resolveFiles(artifactIds));
     }
 
-
     /**
-     }
-     * Returns a new class loader from the given dependencies
+     * } Returns a new class loader from the given dependencies
      */
     public static URLClassLoader createFileClassLoader(ClassLoader parent, List<File> dependencies) throws MalformedURLException {
         List<URL> urls = new ArrayList<URL>();
@@ -157,10 +156,10 @@ public class MOPRepository {
         }
 
         URL[] urlArray = urls.toArray(new URL[urls.size()]);
-        if ( parent==null ) {
+        if (parent == null) {
             parent = Object.class.getClassLoader();
         }
-        return  new URLClassLoader(urlArray, parent);
+        return new URLClassLoader(urlArray, parent);
     }
 
     public void copy(List<ArtifactId> artifactIds, File targetDir) throws Exception {
@@ -222,8 +221,9 @@ public class MOPRepository {
     public List<File> resolveFiles(ArtifactId... artifactIds) throws Exception {
         return resolveFiles(Arrays.asList(artifactIds));
     }
+
     public List<File> resolveFiles(List<ArtifactId> artifactIds) throws Exception {
-        return resolveFiles(artifactIds, Predicates.<Artifact>alwaysTrue());
+        return resolveFiles(artifactIds, Predicates.<Artifact> alwaysTrue());
     }
 
     public List<File> resolveFiles(List<ArtifactId> artifactIds, Predicate<Artifact> filter) throws Exception {
@@ -294,10 +294,7 @@ public class MOPRepository {
                 remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
             }
 
-            ArtifactRepository localRepository = (getLocalRepo() != null)
-                    ? repositorySystem.createLocalRepository(getLocalRepo())
-                    : repositorySystem.createDefaultLocalRepository();
-
+            ArtifactRepository localRepository = (getLocalRepo() != null) ? repositorySystem.createLocalRepository(getLocalRepo()) : repositorySystem.createDefaultLocalRepository();
 
             if (online) {
                 database.open(false);
@@ -326,16 +323,11 @@ public class MOPRepository {
                     id.setGroupId(rc.keySet().iterator().next());
                 }
 
-
                 // We could auto figure out the classifier/type/version too..
             }
 
             Artifact artifact = repositorySystem.createArtifactWithClassifier(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType(), id.getClassifier());
-            ArtifactResolutionRequest request = new ArtifactResolutionRequest()
-                    .setArtifact(artifact)
-                    .setResolveRoot(true)
-                    .setResolveTransitively(isTransitive())
-                    .setLocalRepository(localRepository)
+            ArtifactResolutionRequest request = new ArtifactResolutionRequest().setArtifact(artifact).setResolveRoot(true).setResolveTransitively(isTransitive()).setLocalRepository(localRepository)
                     .setRemoteRepositories(remoteRepoList);
 
             ArtifactResolutionResult result = repositorySystem.resolve(request);
@@ -356,17 +348,13 @@ public class MOPRepository {
             }
             return rc;
 
-        } 
-        finally {
-            try
-            {
+        } finally {
+            try {
                 if (online) {
                     database.installDone();
                 }
                 database.close();
-            }
-            catch (Throwable t)
-            {
+            } catch (Throwable t) {
                 LOG.warn("Error in resolveArtifacts", t);
             }
         }
@@ -374,6 +362,7 @@ public class MOPRepository {
 
     /**
      * Adds some default remote repositories
+     * 
      * @param repositorySystem
      * @param remoteRepoList
      */
@@ -381,8 +370,15 @@ public class MOPRepository {
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
         DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
 
-        remoteRepoList.add(repositorySystem.createArtifactRepository("user.local.repo", "file://" + System.getProperty("user.home", ".") + "/.m2/repository", layout, repositoryPolicy, repositoryPolicy));
-
+        //Always check local repo for updates:
+        ArtifactRepositoryPolicy localPolicy = new ArtifactRepositoryPolicy();
+        if (alwaysCheckUserLocalRepo) {
+            localPolicy = new ArtifactRepositoryPolicy();
+            localPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
+        }
+        localPolicy.setChecksumPolicy(ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE);
+        remoteRepoList.add(repositorySystem.createArtifactRepository("user.local.repo", "file://" + System.getProperty("user.home", ".") + "/.m2/repository", layout, localPolicy, localPolicy));
+        
         remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2", "http://repo.fusesource.com/maven2", layout, repositoryPolicy, repositoryPolicy));
         remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot", layout, repositoryPolicy, repositoryPolicy));
 
@@ -393,10 +389,11 @@ public class MOPRepository {
         remoteRepoList.add(repositorySystem.createArtifactRepository("mop.release", "http://mop.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
     }
 
-
     /**
-     * Returns true if the given artifactScope matches the current scope setting (which defaults to 'compile') to choose
-     * the exact dependencies to add to the classpath
+     * Returns true if the given artifactScope matches the current scope setting
+     * (which defaults to 'compile') to choose the exact dependencies to add to
+     * the classpath
+     * 
      * @param scope
      * @param artifactScope
      * @return
@@ -410,11 +407,11 @@ public class MOPRepository {
     //-------------------------------------------------------------------------
 
     public PlexusContainer getContainer() {
-        if( container == null ) {
+        if (container == null) {
             try {
-                ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader() );
-                ContainerConfiguration configuration = new DefaultContainerConfiguration().setClassWorld( classWorld );
-                container = new DefaultPlexusContainer( configuration );
+                ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader());
+                ContainerConfiguration configuration = new DefaultContainerConfiguration().setClassWorld(classWorld);
+                container = new DefaultPlexusContainer(configuration);
             } catch (PlexusContainerException e) {
                 throw new RuntimeException(e);
             }
@@ -427,12 +424,17 @@ public class MOPRepository {
     }
 
     public File getLocalRepo() {
-        if( localRepo == null ) {
+        if (localRepo == null) {
             if (System.getProperty("mop.base") != null) {
                 localRepo = new File(System.getProperty("mop.base") + File.separator + "repository");
             } else {
                 localRepo = new File(".mop" + File.separator + "repository");
-                LOG.warn("No mop.base property defined so setting local repo to: " + localRepo);
+                String warnDir = localRepo.toString();
+                try {
+                    warnDir = localRepo.getCanonicalPath();
+                } catch (Exception e) {
+                }
+                LOG.warn("No mop.base property defined so setting local repo to: " + warnDir);
             }
         }
         return localRepo;
@@ -440,6 +442,14 @@ public class MOPRepository {
 
     public void setLocalRepo(File localRepo) {
         this.localRepo = localRepo;
+    }
+
+    public boolean isAlwaysCheckUserLocalRepo() {
+        return alwaysCheckUserLocalRepo;
+    }
+
+    public void setAlwaysCheckUserLocalRepo(boolean alwaysCheckUserLocalRepo) {
+        this.alwaysCheckUserLocalRepo = alwaysCheckUserLocalRepo;
     }
 
     public String[] getRemoteRepos() {
@@ -473,6 +483,5 @@ public class MOPRepository {
     public void setTransitive(boolean transitive) {
         this.transitive = transitive;
     }
-
 
 }
