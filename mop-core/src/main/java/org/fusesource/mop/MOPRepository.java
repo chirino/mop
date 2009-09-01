@@ -45,6 +45,7 @@ public class MOPRepository {
 
     private static final transient Log LOG = LogFactory.getLog(MOPRepository.class);
     public static final String MOP_BASE = "mop.base";
+    private static final Object lock = new Object();
 
     private PlexusContainer container;
     private String scope = "compile";
@@ -278,6 +279,7 @@ public class MOPRepository {
     private Set<Artifact> resolveArtifacts(ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
         Database database = createDatabase();
+        synchronized (lock) {
         try {
 
             RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
@@ -379,7 +381,7 @@ public class MOPRepository {
             } catch (Throwable t) {
                 LOG.warn("Error in resolveArtifacts", t);
             }
-        }
+        }  }
     }
 
     protected Database createDatabase() {

@@ -442,6 +442,7 @@ public class Database {
 
     public void setDirectroy(File directroy) {
         this.directroy = directroy;
+        this.directroy.mkdirs();
     }
 
     ///////////////////////////////////////////////////////////////////
