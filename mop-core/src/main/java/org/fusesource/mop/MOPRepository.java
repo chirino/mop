@@ -44,6 +44,7 @@ import java.util.*;
 public class MOPRepository {
 
     private static final transient Log LOG = LogFactory.getLog(MOPRepository.class);
+    public static final String MOP_BASE = "mop.base";
 
     private PlexusContainer container;
     private String scope = "compile";
@@ -474,16 +475,16 @@ public class MOPRepository {
 
     public File getLocalRepo() {
         if (localRepo == null) {
-            if (System.getProperty("mop.base") != null) {
-                localRepo = new File(System.getProperty("mop.base") + File.separator + "repository");
+            if (System.getProperty(MOP_BASE) != null) {
+                localRepo = new File(System.getProperty(MOP_BASE) + File.separator + "repository");
             } else {
-                localRepo = new File(".mop" + File.separator + "repository");
+                localRepo = new File(System.getProperty("user.home", "."), ".mop" + File.separator + "repository");
                 String warnDir = localRepo.toString();
                 try {
                     warnDir = localRepo.getCanonicalPath();
                 } catch (Exception e) {
                 }
-                LOG.warn("No mop.base property defined so setting local repo to: " + warnDir);
+                LOG.warn("No "+MOP_BASE+" system property defined so setting local repo to: " + warnDir);
             }
         }
         return localRepo;
