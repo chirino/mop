@@ -67,6 +67,7 @@ public class Fork {
         newArgs.add(MOP.class.getName());
         newArgs.addAll(args);
 
+        LOG.debug("About to execute: " + newArgs);
         return mop.exec(newArgs);
     }
 
