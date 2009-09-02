@@ -17,15 +17,10 @@ import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.metadata.ArtifactMetadata;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
-import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
-import org.apache.maven.artifact.repository.layout.ArtifactRepositoryLayout;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
-import org.apache.maven.artifact.resolver.ResolutionListener;
 import org.apache.maven.repository.RepositorySystem;
-import org.apache.maven.repository.UserLocalArtifactRepository;
-import org.apache.maven.repository.Proxy;
 import org.codehaus.plexus.*;
 import org.codehaus.plexus.classworlds.ClassWorld;
 import org.fusesource.mop.support.ArtifactId;
@@ -55,46 +50,41 @@ public class MOPRepository {
     private boolean transitive = true;
     private boolean alwaysCheckUserLocalRepo = false;
 
-    public List<String> uninstall(List<ArtifactId> artifactIds) throws IOException {
-
-        Database database = createDatabase();
-        database.open(true);
-
-        ArrayList<String> errorList = new ArrayList<String>();
-        try {
-
-            for (ArtifactId artifactId : artifactIds) {
-                TreeSet<String> deps = database.listDependenants(artifactId.toString());
-                if (deps == null) {
-                    errorList.add(artifactId.toString() + ": is not installed.\n");
-                } else if (!deps.isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(artifactId.toString() + ": is used by\n");
-                    for (String dep : deps) {
-                        sb.append("  * " + dep + "\n");
+    public List<String> uninstall(final List<ArtifactId> artifactIds) throws Exception {
+        
+        final ArrayList<String> errorList = new ArrayList<String>();
+        database(false, new DBCallback() {
+            public void execute(Database database) throws Exception {
+                for (ArtifactId artifactId : artifactIds) {
+                    TreeSet<String> deps = database.listDependenants(artifactId.toString());
+                    if (deps == null) {
+                        errorList.add(artifactId.toString() + ": is not installed.\n");
+                    } else if (!deps.isEmpty()) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(artifactId.toString() + ": is used by\n");
+                        for (String dep : deps) {
+                            sb.append("  * " + dep + "\n");
+                        }
+                        errorList.add(sb.toString());
                     }
-                    errorList.add(sb.toString());
                 }
-            }
 
-            if (!errorList.isEmpty()) {
-                return errorList;
-            }
-
-            for (ArtifactId artifactId : artifactIds) {
-                TreeSet<String> unused = database.uninstall(artifactId.toString());
-                System.out.println("TODO:");
-                for (String dep : unused) {
-                    System.out.println(" rm " + dep);
-                    // TODO: need to remove these deps from the file system.
+                if (!errorList.isEmpty()) {
+                    return;
                 }
+
+                for (ArtifactId artifactId : artifactIds) {
+                    TreeSet<String> unused = database.uninstall(artifactId.toString());
+                    System.out.println("TODO:");
+                    for (String dep : unused) {
+                        System.out.println(" rm " + dep);
+                        // TODO: need to remove these deps from the file system.
+                    }
+                }
+
             }
-
-            return errorList;
-
-        } finally {
-            database.close();
-        }
+        });
+        return errorList;
     }
 
     /**
@@ -106,36 +96,36 @@ public class MOPRepository {
      * @throws IllegalArgumentException
      * @throws IOException
      */
-    public Set<ArtifactId> list(String type) throws IllegalArgumentException, IOException {
+    public Set<ArtifactId> list(String type) throws Exception {
+
         if (type == null) {
             type = "installed";
         }
-
-        HashSet<ArtifactId> rc = new HashSet<ArtifactId>();
-        Database database = createDatabase();
-        database.open(true);
-        try {
-            if (type.equals("installed")) {
-                Set<String> list = database.listInstalled();
-                for (String s : list) {
-                    ArtifactId id = new ArtifactId();
-                    id.strictParse(s);
-                    rc.add(id);
+        final String t = type;
+        
+        final HashSet<ArtifactId> rc = new HashSet<ArtifactId>();
+        database(true, new DBCallback() {
+            public void execute(Database database) throws Exception {
+                if (t.equals("installed")) {
+                    Set<String> list = database.listInstalled();
+                    for (String s : list) {
+                        ArtifactId id = new ArtifactId();
+                        id.strictParse(s);
+                        rc.add(id);
+                    }
+                } else if (t.equals("all")) {
+                    Set<String> list = database.listAll();
+                    for (String s : list) {
+                        ArtifactId id = new ArtifactId();
+                        id.strictParse(s);
+                        rc.add(id);
+                    }
+                } else {
+                    throw new IllegalArgumentException("all|installed expected");
                 }
-            } else if (type.equals("all")) {
-                Set<String> list = database.listAll();
-                for (String s : list) {
-                    ArtifactId id = new ArtifactId();
-                    id.strictParse(s);
-                    rc.add(id);
-                }
-            } else {
-                throw new IllegalArgumentException("all|installed expected");
             }
-            return rc;
-        } finally {
-            database.close();
-        }
+        });
+        return rc;
     }
 
     /**
@@ -273,122 +263,123 @@ public class MOPRepository {
         return artifacts;
     }
 
+
+    static interface DBCallback {
+        void execute(Database database) throws Exception;
+    }
+
+    private void database(boolean readOnly, DBCallback c) throws Exception {
+        Database database = new Database();
+        database.setDirectroy(new File(getLocalRepo(), ".index"));
+        database.open(readOnly);
+        try {
+            if( readOnly ) {
+                synchronized (lock) {
+                    c.execute(database);
+                }
+            } else {
+                c.execute(database);
+            }
+        } finally {
+            database.close();
+        }
+    }
+
     // Implementation methods
     //-------------------------------------------------------------------------
 
-    private Set<Artifact> resolveArtifacts(ArtifactId id) throws Exception, InvalidRepositoryException {
+    private Set<Artifact> resolveArtifacts(final ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
-        Database database = createDatabase();
-        synchronized (lock) {
-        try {
 
-            RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
-            List<ArtifactRepository> remoteRepoList = new ArrayList<ArtifactRepository>();
-            if (online) {
-                addDefaultRemoteRepos(repositorySystem, remoteRepoList);
-                if (remoteRepos != null) {
-                    int counter = 1;
-                    ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-                    DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
-                    for (String remoteRepo : remoteRepos) {
-                        String repoid = "repo" + (counter++);
-                        Logger.debug("Adding repository with id: " + id + " url: " + remoteRepo);
-                        ArtifactRepository repo = repositorySystem.createArtifactRepository(repoid, remoteRepo, layout, repositoryPolicy, repositoryPolicy);
-                        remoteRepoList.add(repo);
-                    }
+        RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
+        List<ArtifactRepository> remoteRepoList = new ArrayList<ArtifactRepository>();
+        if (online) {
+            addDefaultRemoteRepos(repositorySystem, remoteRepoList);
+            if (remoteRepos != null) {
+                int counter = 1;
+                ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
+                DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
+                for (String remoteRepo : remoteRepos) {
+                    String repoid = "repo" + (counter++);
+                    Logger.debug("Adding repository with id: " + id + " url: " + remoteRepo);
+                    ArtifactRepository repo = repositorySystem.createArtifactRepository(repoid, remoteRepo, layout, repositoryPolicy, repositoryPolicy);
+                    remoteRepoList.add(repo);
                 }
-                remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
             }
+            remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
+        }
 
-            ArtifactRepository localRepository = createLocalRepository(repositorySystem, "mop.local", getLocalRepo().getAbsolutePath(), false);
+        ArtifactRepository localRepository = createLocalRepository(repositorySystem, "mop.local", getLocalRepo().getAbsolutePath(), false);
 
-            if (online) {
-                database.open(false);
+        // If group id is not set.. we can still look it up in the db
+        // of installed artifacs.
+        if (id.getGroupId() == null) {
+            database(true, new DBCallback() {
+                public void execute(Database database) throws Exception {
 
-                // Makes groupId optional.. we look it up in the database.
-                if (id.getGroupId() == null) {
-                    Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
-                    if (rc.isEmpty()) {
-                        throw new Exception("Please qualify a group id: No local artifacts match: "+id);
-                    }
-                    if (rc.size() > 1) {
-                        System.out.println("Local artifacts that match:");
-                        for (String s : rc.keySet()) {
-                            System.out.println("   " + s + ":" + id.getArtifactId());
+                    // Makes groupId optional.. we look it up in the database.
+                    if (id.getGroupId() == null) {
+                        Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
+                        if (rc.isEmpty()) {
+                            throw new Exception("Please qualify a group id: No local artifacts match: "+id);
                         }
-                        throw new Exception("Please qualify a group id: Multiple local artifacts match: "+id);
-                    }
-                    id.setGroupId(rc.keySet().iterator().next());
-                }
-
-                // Keep track that we are trying an install..
-                // If an install dies midway.. the repo will have partlly installed dependencies...
-                // we may want to continue the install??
-                database.beginInstall(id.toString());
-
-
-
-            } else {
-                database.open(true);
-
-                // Makes groupId optional.. we look it up in the database.
-                if (id.getGroupId() == null) {
-                    Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
-                    if (rc.isEmpty()) {
-                        throw new Exception("Please qualify a group id: No local artifacts match: "+id);
-                    }
-                    if (rc.size() > 1) {
-                        System.out.println("Local artifacts that match:");
-                        for (String s : rc.keySet()) {
-                            System.out.println("   " + s + ":" + id.getArtifactId());
+                        if (rc.size() > 1) {
+                            System.out.println("Local artifacts that match:");
+                            for (String s : rc.keySet()) {
+                                System.out.println("   " + s + ":" + id.getArtifactId());
+                            }
+                            throw new Exception("Please qualify a group id: Multiple local artifacts match: "+id);
                         }
-                        throw new Exception("Please qualify a group id: Multiple local artifacts match: "+id);
+                        id.setGroupId(rc.keySet().iterator().next());
+
+                        // We could propably figure out the classifier/type/version too..
                     }
-                    id.setGroupId(rc.keySet().iterator().next());
+
                 }
+            });
+        }
 
-                // We could auto figure out the classifier/type/version too..
+        if (online) {
+
+            // Keep track that we are trying an install..
+            // If an install dies midway.. the repo will have partlly installed dependencies...
+            // we may want to continue the install??
+            // database.beginInstall(id.toString());
+
+        }
+
+        Artifact artifact = repositorySystem.createArtifactWithClassifier(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType(), id.getClassifier());
+        ArtifactResolutionRequest request = new ArtifactResolutionRequest()
+                .setArtifact(artifact)
+                .setResolveRoot(true)
+                .setResolveTransitively(isTransitive())
+                .setLocalRepository(localRepository)
+                .setRemoteRepositories(remoteRepoList);
+
+        ArtifactResolutionResult result = repositorySystem.resolve(request);
+
+        List<Artifact> list = result.getMissingArtifacts();
+        if (!list.isEmpty()) {
+            throw new Exception("The following artifacts could not be downloaded: " + list);
+        }
+
+        Set<Artifact> rc = result.getArtifacts();
+        if (online) {
+            // Have the DB index the installed the artifacts.
+            final LinkedHashSet<String> installed = new LinkedHashSet<String>();
+            for (Artifact a : rc) {
+                installed.add(a.getId());
             }
-
-            Artifact artifact = repositorySystem.createArtifactWithClassifier(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType(), id.getClassifier());
-            ArtifactResolutionRequest request = new ArtifactResolutionRequest().setArtifact(artifact).setResolveRoot(true).setResolveTransitively(isTransitive()).setLocalRepository(localRepository)
-                    .setRemoteRepositories(remoteRepoList);
-
-            ArtifactResolutionResult result = repositorySystem.resolve(request);
-
-            List<Artifact> list = result.getMissingArtifacts();
-            if (!list.isEmpty()) {
-                throw new Exception("The following artifacts could not be downloaded: " + list);
-            }
-
-            Set<Artifact> rc = result.getArtifacts();
-            if (online) {
-                // Have the DB index the installed the artifacts.
-                LinkedHashSet<String> installed = new LinkedHashSet<String>();
-                for (Artifact a : rc) {
-                    installed.add(a.getId());
+            database(false, new DBCallback() {
+                public void execute(Database database) throws Exception {
+                    database.install(installed);
                 }
-                database.install(installed);
-            }
-            return rc;
+            });
+        }
+        return rc;
 
-        } finally {
-            try {
-                if (online) {
-                    database.installDone();
-                }
-                database.close();
-            } catch (Throwable t) {
-                LOG.warn("Error in resolveArtifacts", t);
-            }
-        }  }
     }
 
-    protected Database createDatabase() {
-        Database database = new Database();
-        database.setDirectroy(new File(getLocalRepo(), ".index"));
-        return database;
-    }
 
     /**
      * Adds some default remote repositories

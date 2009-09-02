@@ -292,7 +292,7 @@ public class MOP extends AbstractCli {
         //systemProperties.clear();
     }
 
-    private void uninstallCommand(LinkedList<String> argList) throws UsageException, IOException {
+    private void uninstallCommand(LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
         List<String> errorMessages = repository.uninstall(artifactIds);
         for (String errorMessage : errorMessages) {
@@ -300,7 +300,7 @@ public class MOP extends AbstractCli {
         }
     }
 
-    private void listCommand(LinkedList<String> argList) throws UsageException, IOException {
+    private void listCommand(LinkedList<String> argList) throws Exception {
         String type = "installed";
         if (!argList.isEmpty()) {
             type = argList.removeFirst();
