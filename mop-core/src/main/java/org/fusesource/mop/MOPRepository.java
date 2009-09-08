@@ -50,6 +50,8 @@ public class MOPRepository {
     private boolean transitive = true;
     private boolean alwaysCheckUserLocalRepo = false;
 
+    private HashMap<String, String> remoteRepositories = getDefaultRepositories();
+
     public List<String> uninstall(final List<ArtifactId> artifactIds) throws Exception {
         
         final ArrayList<String> errorList = new ArrayList<String>();
@@ -396,15 +398,10 @@ public class MOPRepository {
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
         repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
 
-        
-        remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2", "http://repo.fusesource.com/maven2", layout, repositoryPolicy, repositoryPolicy));
-        remoteRepoList.add(repositorySystem.createArtifactRepository("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot", layout, repositoryPolicy, repositoryPolicy));
 
-        // TODO we can remove these when we get consolidation of forge repos?
-        remoteRepoList.add(repositorySystem.createArtifactRepository("cloudmix.snapshot", "http://cloudmix.fusesource.org/repo/snapshot", layout, repositoryPolicy, repositoryPolicy));
-        remoteRepoList.add(repositorySystem.createArtifactRepository("cloudmix.release", "http://cloudmix.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
-        remoteRepoList.add(repositorySystem.createArtifactRepository("mop.snapshot", "http://mop.fusesource.org/repo/snapshot", layout, repositoryPolicy, repositoryPolicy));
-        remoteRepoList.add(repositorySystem.createArtifactRepository("mop.release", "http://mop.fusesource.org/repo/release", layout, repositoryPolicy, repositoryPolicy));
+        for (Map.Entry<String, String> entry : remoteRepositories.entrySet()) {
+            remoteRepoList.add(repositorySystem.createArtifactRepository(entry.getKey(), entry.getValue(), layout, repositoryPolicy, repositoryPolicy));
+        }
     }
 
     private ArtifactRepository createLocalRepository(RepositorySystem repositorySystem, String id, String path, boolean asRemote) {
@@ -445,6 +442,20 @@ public class MOPRepository {
         // TODO is there a special Maven way to test this???
         return artifactScope == null || artifactScope.equals(scope) || artifactScope.equals("compile") || artifactScope.equals("provided");
     }
+
+    private HashMap<String, String> getDefaultRepositories() {
+        HashMap<String, String> rc = new HashMap<String, String>();
+        rc.put("fusesource.m2", "http://repo.fusesource.com/maven2");
+        rc.put("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot");
+
+        // TODO we can remove these when we get consolidation of forge repos?
+        rc.put("cloudmix.snapshot", "http://cloudmix.fusesource.org/repo/snapshot");
+        rc.put("cloudmix.release", "http://cloudmix.fusesource.org/repo/release");
+        rc.put("mop.snapshot", "http://mop.fusesource.org/repo/snapshot");
+        rc.put("mop.release", "http://mop.fusesource.org/repo/release");
+        return rc;
+    }
+
 
     // Properties
     //-------------------------------------------------------------------------
@@ -527,4 +538,11 @@ public class MOPRepository {
         this.transitive = transitive;
     }
 
+    public HashMap<String, String> getRemoteRepositories() {
+        return remoteRepositories;
+    }
+
+    public void setRemoteRepositories(HashMap<String, String> remoteRepositories) {
+        this.remoteRepositories = remoteRepositories;
+    }
 }
