@@ -209,7 +209,7 @@ public class MOP extends AbstractCli {
         repository.setContainer(container);
         // lets process the options
         Logger.debug = cli.hasOption('X');
-        repository.setScope(cli.getOptionValue('s', "compile"));
+        repository.setScope(cli.getOptionValue('s', "runtime"));
         repository.setRemoteRepos(cli.getOptionValues('r'));
         
         repository.setOnline(!cli.hasOption('o'));

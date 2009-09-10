@@ -42,13 +42,14 @@ public class MOPRepository {
     public static final String MOP_BASE = "mop.base";
     private static final Object lock = new Object();
 
+    private String scope = System.getProperty("mop.scope", "runtime");
+    private boolean online = System.getProperty("mop.online", "true").equals("true");
+    private boolean transitive = System.getProperty("mop.transitive", "true").equals("true");
+    private boolean alwaysCheckUserLocalRepo = System.getProperty("mop.always-check-local-repo", "false").equals("true");
+
     private PlexusContainer container;
-    private String scope = "compile";
     private File localRepo;
     private String[] remoteRepos;
-    private boolean online = true;
-    private boolean transitive = true;
-    private boolean alwaysCheckUserLocalRepo = false;
 
     private HashMap<String, String> remoteRepositories = getDefaultRepositories();
 
