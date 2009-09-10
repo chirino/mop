@@ -58,9 +58,16 @@ public class Fork {
                 throw new Exception("no java.class.path system property available!");
             }
         }
-
+        if (isWindows() && classpath.contains(" ")) {
+        	classpath = "\"" + classpath + "\"";
+        }
+        
         List<String> newArgs = Lists.newArrayList();
-        newArgs.add("java");
+        String javaExe = "java";
+        if (isWindows()) {
+        	javaExe += ".exe";
+        }
+        newArgs.add(javaExe);
         mop.addSystemProperties(newArgs);
         newArgs.add("-cp");
         newArgs.add(classpath);
@@ -71,5 +78,9 @@ public class Fork {
         return mop.exec(newArgs);
     }
 
-
+    private boolean isWindows() {
+    	String os = System.getProperty("os.name");
+        return os != null && os.toLowerCase().contains("windows") ? true : false;
+    }
+    
 }

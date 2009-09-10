@@ -7,17 +7,14 @@
  **************************************************************************************/
 package org.fusesource.mop.commands;
 
-import com.google.common.collect.Lists;
+import java.util.LinkedList;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
-import org.fusesource.mop.ProcessRunner;
 import org.fusesource.mop.Optional;
-import org.fusesource.mop.support.ArtifactId;
-
-import java.util.LinkedList;
-import java.util.List;
+import org.fusesource.mop.ProcessRunner;
 
 /**
  * @version $Revision: 1.1 $

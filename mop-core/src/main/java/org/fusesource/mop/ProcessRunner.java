@@ -7,9 +7,6 @@
  **************************************************************************************/
 package org.fusesource.mop;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import java.io.BufferedInputStream;
 import java.io.EOFException;
 import java.io.File;
@@ -17,6 +14,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 /**
  * A helper class for invoking a child process
