@@ -391,10 +391,17 @@ public class MOP extends AbstractCli {
 
         String[] env = {};
         if (isWindows()) {
-            String javaHome = System.getProperty("java.home");
-            if (javaHome != null) {
-            	env = new String[]{"JAVA_HOME=" + javaHome};
-            }
+        	
+        	Map<String, String> envMap = System.getenv();
+        	env = new String[envMap.size()];
+        	int ind = 0;
+        	for (Map.Entry<String, String> entry : envMap.entrySet()) {
+        		env[ind++] = entry.getKey() + "=" + entry.getValue();
+//	            String javaHome = System.getProperty("java.home");
+//	            if (javaHome != null) {
+//	            	env = new String[]{"JAVA_HOME=" + javaHome};
+//	            }
+        	}
         }
         
 
