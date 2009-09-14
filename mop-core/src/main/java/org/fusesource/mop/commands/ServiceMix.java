@@ -30,9 +30,13 @@ public class ServiceMix implements ConfiguresMop {
     public void servicemix(List<String> params) throws Exception {
         LOG.info(String.format("Installing ServiceMix %s", version));
         
-        mop.execute(new String[] {"install", "org.apache.servicemix:apache-servicemix:tar.gz:"+version, mop.getWorkingDirectory().getAbsolutePath()});
+        mop.execute(new String[] {
+        		"install", 
+        		"org.apache.servicemix:apache-servicemix:" + getExtension() + ":" + version,
+        		mop.getWorkingDirectory().getAbsolutePath()
+        		});
         
-        File root = new File(mop.getWorkingDirectory().getAbsoluteFile() + "/apache-servicemix-" + version);
+        File root = getRoot();
         
         LOG.info(String.format("Starting ServiceMix %s", version));
         final ProcessRunner runner = mop.exec(getCommand(root));
@@ -53,9 +57,29 @@ public class ServiceMix implements ConfiguresMop {
         Runtime.getRuntime().removeShutdownHook(hook);
     }
 
+    private boolean isWindows() {
+    	String os = System.getProperty("os.name");
+        return os != null && os.toLowerCase().contains("windows") ? true : false;
+    }
+    
+    private File getRoot() {
+    	String sep = File.separator;
+    	return new File(mop.getWorkingDirectory().getAbsoluteFile() + sep + "apache-servicemix-" + version);
+    }
+    
+    private String getExtension() {
+        return isWindows() ? "zip" : "tar.gz";
+    } 
+
     protected List<String> getCommand(File root) {
+    	String sep = File.separator;
         List<String> command = new LinkedList<String>();
-        command.add(root.getAbsolutePath() + "/bin/servicemix");
+        String cmd = root.getAbsolutePath() + sep + "bin" + sep + "servicemix";
+        if (isWindows())  {
+        	cmd += ".bat";
+        }
+        command.add(cmd);
+        
         if (!version.startsWith("3")) {
             command.add("server");
         }

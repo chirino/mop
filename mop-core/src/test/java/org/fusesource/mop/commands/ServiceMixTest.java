@@ -67,7 +67,12 @@ public class ServiceMixTest extends TestCase {
 
     private void assertCommand(List<String> command) {
         assertTrue("Requires at least two elements", command.size() >= 1);
-        assertTrue("Run bin/servicemix", command.get(0).endsWith("bin/servicemix"));
+        String expected = isWindows() ? "bin\\servicemix.bat" : "bin/servicemix";
+        assertTrue("Run bin/servicemix", command.get(0).endsWith(expected));
     }
 
+    private boolean isWindows() {
+    	String os = System.getProperty("os.name");
+        return os != null && os.toLowerCase().contains("windows") ? true : false;
+    }
 }

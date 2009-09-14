@@ -9,26 +9,17 @@ package org.fusesource.mop;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
-import java.util.prefs.Preferences;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -39,32 +30,23 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.InvalidRepositoryException;
-import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
-import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
-import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
-import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
-import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.tools.cli.AbstractCli;
+import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
 import org.fusesource.mop.commands.ServiceMix;
 import org.fusesource.mop.commands.Shell;
-import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
-import org.fusesource.mop.support.Database;
 import org.fusesource.mop.support.Logger;
 import org.fusesource.mop.support.MethodCommandDefinition;
 
 import com.google.common.base.Nullable;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * Runs a Java class from an artifact loaded from the local maven repository
@@ -407,14 +389,32 @@ public class MOP extends AbstractCli {
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
 
-        // TODO pass in environment
         String[] env = {};
+        if (isWindows()) {
+        	
+        	Map<String, String> envMap = System.getenv();
+        	env = new String[envMap.size()];
+        	int ind = 0;
+        	for (Map.Entry<String, String> entry : envMap.entrySet()) {
+        		env[ind++] = entry.getKey() + "=" + entry.getValue();
+//	            String javaHome = System.getProperty("java.home");
+//	            if (javaHome != null) {
+//	            	env = new String[]{"JAVA_HOME=" + javaHome};
+//	            }
+        	}
+        }
+        
 
         processRunner = ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
         return processRunner;
 
     }
 
+    private boolean isWindows() {
+    	String os = System.getProperty("os.name");
+        return os != null && os.toLowerCase().contains("windows") ? true : false;
+    } 
+    
     private void jarCommand(LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
         artifactIds = parseArtifactList(argList);
