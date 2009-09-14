@@ -64,6 +64,17 @@
      -->
   </dependencies>
 
+  <pluginRepositories>
+    <!-- for the maven-uberize-plugin -->
+    <pluginRepository>
+      <id>mvnplugins.fusesource.org</id>
+      <url>http://mvnplugins.fusesource.org/repo/release</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+    </pluginRepository>
+  </pluginRepositories>
+
   <build>
     <plugins>
       <plugin>
@@ -89,46 +100,92 @@
       </plugin>
 
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
-        <version>1.2.1</version>
+        <groupId>org.fusesource.mvnplugins</groupId>
+        <artifactId>maven-uberize-plugin</artifactId>
+        <version>1.1</version>
         <executions>
           <execution>
             <phase>package</phase>
-            <goals>
-              <goal>shade</goal>
-            </goals>
+            <goals><goal>uberize</goal></goals>
             <configuration>
+
+              <artifactSet>
+                <excludes>
+                  <!-- the following artifact duplicates stuff in the plexus-container-default-1.2.1-SNAPSHOT.jar -->
+                  <exclude>org.codehaus.plexus:plexus-component-api</exclude>
+                </excludes>
+              </artifactSet>
+              
               <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>org.fusesource.mop.MOP</mainClass>
-                   <manifestEntries>
+                
+                <!-- Merge the plexus component XML files -->
+                <transformer implementation="org.fusesource.mvnplugins.uberize.transformer.PlexusComponents"/>
+                
+                <!-- Make an executable jar -->
+                <transformer implementation="org.fusesource.mvnplugins.uberize.transformer.ManifestEditor">
+                  <manifestEntries>
+                    <Main-Class>org.fusesource.mop.MOP</Main-Class>
                     <Specification-Version>${pom.version}</Specification-Version>
                     <Implementation-Version>${pom.version}</Implementation-Version>
                   </manifestEntries>
                 </transformer>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ComponentsXmlResourceTransformer"/>
+
+                <!-- this is here to avoid the logged console warning.. We just want the pick our version which is the first one listed -->
+                <transformer implementation="org.fusesource.mvnplugins.uberize.transformer.PickResource">
+                  <pick>first</pick>
+                  <includes>
+                    <include>org/apache/maven/repository/legacy/resolver/transform/LatestArtifactTransformation.class</include>
+                  </includes>
+                </transformer>
+
+                <!-- the META-INF/DEPENDENCIES are no longer valid since we are uberizing -->
+                <transformer implementation="org.fusesource.mvnplugins.uberize.transformer.RemoveResource">
+                  <includes>
+                    <include>META-INF/DEPENDENCIES</include>
+                  </includes>
+                </transformer>
+                
+                <!-- Just merge these guys together -->
+                <transformer implementation="org.fusesource.mvnplugins.uberize.transformer.TextAggregator">
+                  <includes>
+                    <include>META-INF/LICENSE</include>
+                    <include>META-INF/LICENSE.txt</include>
+                    <include>META-INF/NOTICE</include>
+                    <include>META-INF/NOTICE.txt</include>
+                  </includes>
+                </transformer>
+                
+                <!-- Lets relocate all our depdendencies -->
+                <transformer implementation="org.fusesource.mvnplugins.uberize.transformer.ClassShader">
+                  <relocations>
+                    <relocation>
+                      <pattern>org.apache</pattern>
+                      <shadedPattern>org.fusesource.mop.org.apache</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>org.codehaus</pattern>
+                      <shadedPattern>org.fusesource.mop.org.codehaus</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>org.sonatype</pattern>
+                      <shadedPattern>org.fusesource.mop.org.sonatype</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>com.google</pattern>
+                      <shadedPattern>org.fusesource.mop.com.google</shadedPattern>
+                    </relocation>
+                  </relocations>
+                  <resources>
+                    <includes>
+                      <!-- And lets make sure we update the resource files which made 
+                           references to those classes that have relocated -->
+                      <include>log4j.properties</include>
+                      <include>META-INF/plexus/components.xml</include>
+                    </includes>
+                  </resources>                   
+                </transformer>
+                
               </transformers>
-              <!-- TODO relocate some code? Might mess up the plexus stuff though! -->
-              <relocations>
-                <relocation>
-                  <pattern>com.google.common</pattern>
-                  <shadedPattern>org.fusesource.mop.common</shadedPattern>
-<!--
-                  <excludes>
-                    <exclude>org.codehaus.plexus.util.xml.pull.*</exclude>
-                  </excludes>
--->
-                </relocation>
-                <relocation>
-                  <pattern>org.apache.kahadb</pattern>
-                  <shadedPattern>org.fusesource.mop.db</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.apache.commons.cli</pattern>
-                  <shadedPattern>org.fusesource.mop.cli</shadedPattern>
-                </relocation>
-              </relocations>
             </configuration>
           </execution>
         </executions>
