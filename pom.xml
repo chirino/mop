@@ -189,6 +189,10 @@
       </modules>
     </profile>
     
+    <!-- 
+      To generate a graph of the project dependencies, run: 
+      mvn -P graph graph:project 
+    -->
     <profile>
       <id>graph</id>
       <pluginRepositories>
