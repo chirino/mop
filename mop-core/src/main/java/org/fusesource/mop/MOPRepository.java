@@ -70,9 +70,14 @@ public class MOPRepository {
     private PlexusContainer container;
     private File localRepo;
     private String[] remoteRepos;
-
     private HashMap<String, String> remoteRepositories = getDefaultRepositories();
 
+
+    /**
+     * @param artifactIds
+     * @return a list of error messages if the uninstall cannot be performed
+     * @throws Exception
+     */
     public List<String> uninstall(final List<ArtifactId> artifactIds) throws Exception {
         
         final ArrayList<String> errorList = new ArrayList<String>();
@@ -151,37 +156,66 @@ public class MOPRepository {
         return rc;
     }
 
+    // ----------------------------------------------------------------
+    // createArtifactClassLoader method variations
+    // ----------------------------------------------------------------
+
     /**
      * Returns a new class loader from the given dependencies
      */
-    public URLClassLoader createArtifactClassLoader(ClassLoader parent, List<ArtifactId> artifactIds) throws Exception {
-        return createFileClassLoader(parent, resolveFiles(artifactIds));
+    public URLClassLoader createArtifactClassLoader(ClassLoader parent, String... artifactIds) throws Exception {
+        return createArtifactClassLoader(null, parent, toArtifactIds(artifactIds));
     }
 
     /**
      * Returns a new class loader from the given dependencies
      */
     public URLClassLoader createArtifactClassLoader(ClassLoader parent, ArtifactId... artifactIds) throws Exception {
-        return createFileClassLoader(parent, resolveFiles(artifactIds));
+        return createArtifactClassLoader(null, parent, Arrays.asList(artifactIds));
     }
 
     /**
-     * } Returns a new class loader from the given dependencies
+     * Returns a new class loader from the given dependencies
      */
-    public static URLClassLoader createFileClassLoader(ClassLoader parent, List<File> dependencies) throws MalformedURLException {
-        List<URL> urls = new ArrayList<URL>();
-        for (File file : dependencies) {
-            urls.add(file.toURL());
-        }
-
-        URL[] urlArray = urls.toArray(new URL[urls.size()]);
-        if (parent == null) {
-            parent = Object.class.getClassLoader();
-        }
-        return new URLClassLoader(urlArray, parent);
+    public URLClassLoader createArtifactClassLoader(ClassLoader parent, List<ArtifactId> artifactIds) throws Exception {
+        return createArtifactClassLoader(null, parent, artifactIds);
     }
 
-    public void copy(List<ArtifactId> artifactIds, File targetDir) throws Exception {
+
+    /**
+     * Returns a new class loader from the given dependencies
+     */
+    public URLClassLoader createArtifactClassLoader(ArtifactFilter filter, ClassLoader parent, ArtifactId... artifactIds) throws Exception {
+        return createArtifactClassLoader(filter, parent, Arrays.asList(artifactIds));
+    }
+
+    /**
+     * Returns a new class loader from the given dependencies
+     */
+    public URLClassLoader createArtifactClassLoader(ArtifactFilter filter, ClassLoader parent, List<ArtifactId> artifactIds) throws Exception {
+        return createFileClassLoader(parent, resolveFiles(filter, artifactIds));
+    }
+
+    // ----------------------------------------------------------------
+    // copy method variations
+    // ----------------------------------------------------------------
+    public void copy(File targetDir, String... artifactIds) throws Exception {
+        copy(null, targetDir, toArtifactIds(artifactIds));
+    }
+
+    public void copy(File targetDir, ArtifactId... artifactIds) throws Exception {
+        copy(null, targetDir, Arrays.asList(artifactIds));
+    }
+
+    public void copy(File targetDir, List<ArtifactId> artifactIds) throws Exception {
+        copy(null, targetDir, artifactIds);
+    }
+
+    public void copy(ArtifactFilter filter, File targetDir, ArtifactId... artifactIds) throws Exception {
+        copy(filter, targetDir, Arrays.asList(artifactIds));
+    }
+
+    public void copy(ArtifactFilter filter, File targetDir, List<ArtifactId> artifactIds) throws Exception {
         List<File> dependencies = resolveFiles(artifactIds);
         if (!targetDir.isDirectory()) {
             throw new IOException("target is not a directroy: " + targetDir);
@@ -210,94 +244,87 @@ public class MOPRepository {
         }
     }
 
-    private static void copy(InputStream is, OutputStream os) throws IOException {
-        byte buffer[] = new byte[1024 * 4];
-        int c;
-        while ((c = is.read(buffer)) > 0) {
-            os.write(buffer, 0, c);
-        }
+    // ----------------------------------------------------------------
+    // classpath method variations
+    // ----------------------------------------------------------------
+
+    public String classpath(String... artifactIds) throws Exception {
+        return classpath(null, toArtifactIds(artifactIds));
     }
 
     public String classpath(ArtifactId... artifactIds) throws Exception {
-        return classpath(Arrays.asList(artifactIds));
+        return classpath(null, Arrays.asList(artifactIds));
     }
     
     public String classpath(List<ArtifactId> artifactIds) throws Exception {
-        List<File> files = resolveFiles(artifactIds);
-        return classpathFiles(files);
+        return classpath(null, artifactIds);
     }
 
-    static String classpathFiles(List<File> files) {
-        StringBuilder buffer = new StringBuilder();
-        boolean first = true;
-        for (File file : files) {
-            if (first) {
-                first = false;
-            } else {
-                buffer.append(File.pathSeparator);
-            }
-            buffer.append(file);
-        }
-        return buffer.toString();
+    public String classpath(ArtifactFilter filter, ArtifactId... artifactIds) throws Exception {
+        return classpath(filter, Arrays.asList(artifactIds));
+    }
+
+    public String classpath(ArtifactFilter filter, List<ArtifactId> artifactIds) throws Exception {
+        return classpathFiles(resolveFiles(filter, artifactIds));
+    }
+
+    // ----------------------------------------------------------------
+    // resolveFiles method variations
+    // ----------------------------------------------------------------
+
+    public List<File> resolveFiles(String... artifactIds) throws Exception {
+        return resolveFiles(null, toArtifactIds(artifactIds));
     }
 
     public List<File> resolveFiles(ArtifactId... artifactIds) throws Exception {
-        return resolveFiles(Arrays.asList(artifactIds));
+        return resolveFiles(null, Arrays.asList(artifactIds));
     }
 
     public List<File> resolveFiles(List<ArtifactId> artifactIds) throws Exception {
-        Set<Artifact> artifacts = resolveArtifacts(artifactIds);
+        return resolveFiles(null, artifactIds);
+    }
 
-        List<File> files = new ArrayList<File>(artifacts.size());
+    public List<File> resolveFiles(ArtifactFilter filter, ArtifactId... artifactIds) throws Exception {
+        return resolveFiles(filter, Arrays.asList(artifactIds));
+    }
+
+    public List<File> resolveFiles(ArtifactFilter filter, List<ArtifactId> artifactIds) throws Exception {
+        Set<Artifact> artifacts = resolveArtifacts(filter, artifactIds);
+        ArrayList<File> files = new ArrayList<File>(artifacts.size());
         for (Artifact a : artifacts) {
-            File file = a.getFile();
-            files.add(file);
+            files.add(a.getFile());
         }
         return files;
     }
+    // ----------------------------------------------------------------
+    // resolveArtifacts method variations
+    // ----------------------------------------------------------------
 
-    public Set<Artifact> resolveArtifacts(List<ArtifactId> artifactIds) throws Exception {
-        LinkedHashSet<Artifact> artifacts = new LinkedHashSet<Artifact>();
-        for (ArtifactId id : artifactIds) {
-            artifacts.addAll(resolveArtifacts(id));
-        }
-        return artifacts;
+    public Set<Artifact> resolveArtifacts(String... artifactIds) throws Exception {
+        return resolveArtifacts(null, toArtifactIds(artifactIds));
     }
 
     public Set<Artifact> resolveArtifacts(ArtifactId... artifactIds) throws Exception {
+        return resolveArtifacts(null, Arrays.asList(artifactIds));
+    }
+
+    public Set<Artifact> resolveArtifacts(List<ArtifactId> artifactIds) throws Exception {
+        return resolveArtifacts(null, artifactIds);
+    }
+
+    public Set<Artifact> resolveArtifacts(ArtifactFilter filter, ArtifactId... artifactIds) throws Exception {
+        return resolveArtifacts(filter, Arrays.asList(artifactIds));
+    }
+
+    public Set<Artifact> resolveArtifacts(ArtifactFilter filter, List<ArtifactId> artifactIds) throws Exception {
         LinkedHashSet<Artifact> artifacts = new LinkedHashSet<Artifact>();
         for (ArtifactId id : artifactIds) {
-            artifacts.addAll(resolveArtifacts(id));
+            artifacts.addAll(resolveArtifacts(filter, id));
         }
         return artifacts;
     }
 
-
-    static interface DBCallback {
-        void execute(Database database) throws Exception;
-    }
-
-    private void database(boolean readOnly, DBCallback c) throws Exception {
-        Database database = new Database();
-        database.setDirectroy(new File(getLocalRepo(), ".index"));
-        database.open(readOnly);
-        try {
-            if( readOnly ) {
-                synchronized (lock) {
-                    c.execute(database);
-                }
-            } else {
-                c.execute(database);
-            }
-        } finally {
-            database.close();
-        }
-    }
-
-    // Implementation methods
-    //-------------------------------------------------------------------------
-
-    private Set<Artifact> resolveArtifacts(final ArtifactId id) throws Exception, InvalidRepositoryException {
+    public Set<Artifact> resolveArtifacts(ArtifactFilter filter, final ArtifactId id) throws Exception, InvalidRepositoryException {
         Logger.debug("Resolving artifact " + id);
 
         RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
@@ -369,6 +396,10 @@ public class MOPRepository {
                 }
             });
         }
+        if( filter!=null ) {
+            constraints.add(filter);
+        }
+
         ArtifactFilter filters = new AndArtifactFilter(constraints);
 
         ArtifactResolutionRequest request = new ArtifactResolutionRequest()
@@ -412,6 +443,81 @@ public class MOPRepository {
 
     }
 
+    // ----------------------------------------------------------------
+    // Helper implementation methods
+    // ----------------------------------------------------------------
+
+    static interface DBCallback {
+        void execute(Database database) throws Exception;
+    }
+
+    private void database(boolean readOnly, DBCallback c) throws Exception {
+        Database database = new Database();
+        database.setDirectroy(new File(getLocalRepo(), ".index"));
+        database.open(readOnly);
+        try {
+            if( readOnly ) {
+                synchronized (lock) {
+                    c.execute(database);
+                }
+            } else {
+                c.execute(database);
+            }
+        } finally {
+            database.close();
+        }
+    }
+
+    static private List<ArtifactId> toArtifactIds(String... artifactIds) {
+        return toArtifactIds(Arrays.asList(artifactIds));
+    }
+    
+    static private List<ArtifactId> toArtifactIds(List<String> artifactIds) {
+        ArrayList<ArtifactId> rc = new ArrayList<ArtifactId>(artifactIds.size());
+        for (String id : artifactIds) {
+            rc.add(ArtifactId.parse(id));
+        }
+        return rc;
+    }
+
+
+    private static void copy(InputStream is, OutputStream os) throws IOException {
+        byte buffer[] = new byte[1024 * 4];
+        int c;
+        while ((c = is.read(buffer)) > 0) {
+            os.write(buffer, 0, c);
+        }
+    }
+
+    /**
+     * Returns a new class loader from the given dependencies
+     */
+    public static URLClassLoader createFileClassLoader(ClassLoader parent, List<File> dependencies) throws MalformedURLException {
+        List<URL> urls = new ArrayList<URL>();
+        for (File file : dependencies) {
+            urls.add(file.toURL());
+        }
+
+        URL[] urlArray = urls.toArray(new URL[urls.size()]);
+        if (parent == null) {
+            parent = Object.class.getClassLoader();
+        }
+        return new URLClassLoader(urlArray, parent);
+    }
+
+    static String classpathFiles(List<File> files) {
+        StringBuilder buffer = new StringBuilder();
+        boolean first = true;
+        for (File file : files) {
+            if (first) {
+                first = false;
+            } else {
+                buffer.append(File.pathSeparator);
+            }
+            buffer.append(file);
+        }
+        return buffer.toString();
+    }
 
     /**
      * Adds some default remote repositories
@@ -460,7 +566,7 @@ public class MOPRepository {
     }
 
 
-    private HashMap<String, String> getDefaultRepositories() {
+    private static HashMap<String, String> getDefaultRepositories() {
         HashMap<String, String> rc = new HashMap<String, String>();
         rc.put("fusesource.m2", "http://repo.fusesource.com/maven2");
         rc.put("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot");
@@ -474,8 +580,9 @@ public class MOPRepository {
     }
 
 
+    // ----------------------------------------------------------------
     // Properties
-    //-------------------------------------------------------------------------
+    // ----------------------------------------------------------------
 
     public PlexusContainer getContainer() {
         if (container == null) {

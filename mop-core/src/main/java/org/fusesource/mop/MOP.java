@@ -517,7 +517,7 @@ public class MOP extends AbstractCli {
         artifactIds = parseArtifactList(argList);
         assertNotEmpty(argList);
         File targetDir = new File(argList.removeFirst());
-        repository.copy(artifactIds, targetDir);
+        repository.copy(targetDir, artifactIds);
     }
 
     private void classpathCommand(LinkedList<String> argList) throws Exception {
