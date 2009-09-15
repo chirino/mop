@@ -16,6 +16,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -30,8 +32,10 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
+
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.tools.cli.AbstractCli;
+
 import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
@@ -43,10 +47,6 @@ import org.fusesource.mop.support.CommandDefinitions;
 import org.fusesource.mop.support.Logger;
 import org.fusesource.mop.support.MethodCommandDefinition;
 
-import com.google.common.base.Nullable;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 /**
  * Runs a Java class from an artifact loaded from the local maven repository
@@ -70,7 +70,7 @@ public class MOP extends AbstractCli {
     private String defaultType = DEFAULT_TYPE;
     private File workingDirectory;
     private ProcessRunner processRunner;
-    private Map<String,String> systemProperties = Maps.newHashMap();
+    private Map<String,String> systemProperties = new HashMap<String, String>();
 
     public static void main(String[] args) {
         MOP mop = new MOP();
@@ -213,7 +213,8 @@ public class MOP extends AbstractCli {
             System.err.println();
             System.err.println("Failed: " + e);
             e.printStackTrace();
-            Set<Throwable> exceptions = Sets.newHashSet(e);
+            Set<Throwable> exceptions = new HashSet<Throwable>();
+            exceptions.add(e);
             for (int i = 0; i < 10; i++) {
                 e = e.getCause();
                 if (e != null && exceptions.add(e)) {
@@ -434,13 +435,10 @@ public class MOP extends AbstractCli {
         reminingArgs = argList;
 
         // lets default the artiact to WAR and then find all the files and pass them in as a command line argumnet
-        List<File> files = repository.resolveFiles(artifactIds, new Predicate<Artifact>() {
-            public boolean apply(@Nullable Artifact artifact) {
-                String type = artifact.getType();
-                System.out.println("artifact: " + artifact + " has type: " + type);
-                return type != null && type.equals("war");
-            }
-        });
+        repository.setTransitive(false); // We just need the wars.. not the transitive deps.
+        List<File> files = repository.resolveFiles(artifactIds);
+        // We will need transitive deps to load up jettty
+        repository.setTransitive(true);
 
         LOG.debug("Running war with files: " + files);
 

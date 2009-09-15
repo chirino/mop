@@ -7,16 +7,18 @@
  **************************************************************************************/
 package org.fusesource.mop.commands;
 
-import com.google.common.collect.Lists;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Arrays;
+import java.util.ArrayList;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.ProcessRunner;
 import org.fusesource.mop.support.ArtifactId;
-
-import java.util.LinkedList;
-import java.util.List;
 
 /**
  * @version $Revision: 1.1 $
@@ -50,7 +52,7 @@ public class Fork {
         if (version != null) {
             ArtifactId mopArtifactId = mop.parseArtifactId("org.fusesource.mop:mop-core:" + version);
             mop.setTransitive(false);
-            mop.setArtifactIds(Lists.newArrayList(mopArtifactId));
+            mop.setArtifactIds(Arrays.asList(mopArtifactId));
             classpath = mop.classpath();
         } else {
             classpath = System.getProperty("java.class.path");
@@ -62,7 +64,7 @@ public class Fork {
         	classpath = "\"" + classpath + "\"";
         }
         
-        List<String> newArgs = Lists.newArrayList();
+        List<String> newArgs = new ArrayList<String>();
         String javaExe = "java";
         if (isWindows()) {
         	javaExe += ".exe";

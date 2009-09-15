@@ -36,20 +36,21 @@ import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
+import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
+import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.repository.RepositorySystem;
+
 import org.codehaus.plexus.ContainerConfiguration;
 import org.codehaus.plexus.DefaultContainerConfiguration;
 import org.codehaus.plexus.DefaultPlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.classworlds.ClassWorld;
+
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.Database;
 import org.fusesource.mop.support.Logger;
-
-import com.google.common.base.Nullable;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 
 /**
  * @author chirino
@@ -62,7 +63,8 @@ public class MOPRepository {
 
     private String scope = System.getProperty("mop.scope", "runtime");
     private boolean online = System.getProperty("mop.online", "true").equals("true");
-    private boolean transitive = System.getProperty("mop.transitive", "true").equals("true");
+    private boolean transitive = System.getProperty("mop.include.transitive", "true").equals("true");
+    private boolean includeOptional = System.getProperty("mop.include.includeOptional", "false").equals("true");
     private boolean alwaysCheckUserLocalRepo = System.getProperty("mop.always-check-local-repo", "false").equals("true");
 
     private PlexusContainer container;
@@ -216,6 +218,10 @@ public class MOPRepository {
         }
     }
 
+    public String classpath(ArtifactId... artifactIds) throws Exception {
+        return classpath(Arrays.asList(artifactIds));
+    }
+    
     public String classpath(List<ArtifactId> artifactIds) throws Exception {
         List<File> files = resolveFiles(artifactIds);
         return classpathFiles(files);
@@ -240,30 +246,12 @@ public class MOPRepository {
     }
 
     public List<File> resolveFiles(List<ArtifactId> artifactIds) throws Exception {
-        return resolveFiles(artifactIds, Predicates.<Artifact> alwaysTrue());
-    }
-
-    public List<File> resolveFiles(List<ArtifactId> artifactIds, Predicate<Artifact> filter) throws Exception {
         Set<Artifact> artifacts = resolveArtifacts(artifactIds);
 
-        Predicate<Artifact> matchingArtifacts = Predicates.and(filter, new Predicate<Artifact>() {
-            public boolean apply(@Nullable Artifact artifact) {
-                String artifactScope = artifact.getScope();
-                return matchesScope(scope, artifactScope);
-            }
-        });
-
-        List<File> files = new ArrayList<File>();
+        List<File> files = new ArrayList<File>(artifacts.size());
         for (Artifact a : artifacts) {
-            String artifactScope = a.getScope();
-            if (matchingArtifacts.apply(a)) {
-                File file = a.getFile();
-                files.add(file);
-                Logger.debug("    depends on: " + a.getGroupId() + " / " + a.getArtifactId() + " / " + a.getVersion() + " scope: " + artifactScope + " file: " + file);
-            } else {
-                Logger.debug("    not in scope: " + a.getGroupId() + " / " + a.getArtifactId() + " / " + a.getVersion() + " scope: " + artifactScope);
-            }
-
+            File file = a.getFile();
+            files.add(file);
         }
         return files;
     }
@@ -338,7 +326,7 @@ public class MOPRepository {
             database(true, new DBCallback() {
                 public void execute(Database database) throws Exception {
 
-                    // Makes groupId optional.. we look it up in the database.
+                    // Makes groupId includeOptional.. we look it up in the database.
                     if (id.getGroupId() == null) {
                         Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
                         if (rc.isEmpty()) {
@@ -370,12 +358,27 @@ public class MOPRepository {
         }
 
         Artifact artifact = repositorySystem.createArtifactWithClassifier(id.getGroupId(), id.getArtifactId(), id.getVersion(), id.getType(), id.getClassifier());
+
+        // Setup the filters which will constrain the resulting dependencies..
+        List<ArtifactFilter> constraints = new ArrayList<ArtifactFilter>();
+        constraints.add(new ScopeArtifactFilter(scope));
+        if( !includeOptional) {
+            constraints.add(new ArtifactFilter() {
+                public boolean include(Artifact artifact) {
+                    return !artifact.isOptional();
+                }
+            });
+        }
+        ArtifactFilter filters = new AndArtifactFilter(constraints);
+
         ArtifactResolutionRequest request = new ArtifactResolutionRequest()
                 .setArtifact(artifact)
                 .setResolveRoot(true)
                 .setResolveTransitively(isTransitive())
                 .setLocalRepository(localRepository)
-                .setRemoteRepositories(remoteRepoList);
+                .setRemoteRepositories(remoteRepoList)
+                .setOffline(!online)
+                .setCollectionFilter(filters);
 
         ArtifactResolutionResult result = repositorySystem.resolve(request);
 
@@ -397,6 +400,14 @@ public class MOPRepository {
                 }
             });
         }
+
+        if( Logger.isDebug() ) {
+            Logger.debug("  Resolved: "+id);
+            for (Artifact a : rc) {
+                Logger.debug("    depends on: " + a.getArtifactId() + ", scope: " + a.getScope() +", optional: "+a.isOptional()+ ", file: " + a.getFile());
+            }
+        }
+
         return rc;
 
     }
@@ -448,19 +459,6 @@ public class MOPRepository {
         return repository;
     }
 
-    /**
-     * Returns true if the given artifactScope matches the current scope setting
-     * (which defaults to 'compile') to choose the exact dependencies to add to
-     * the classpath
-     * 
-     * @param scope
-     * @param artifactScope
-     * @return
-     */
-    protected boolean matchesScope(String scope, String artifactScope) {
-        // TODO is there a special Maven way to test this???
-        return artifactScope == null || artifactScope.equals(scope) || artifactScope.equals("compile") || artifactScope.equals("provided");
-    }
 
     private HashMap<String, String> getDefaultRepositories() {
         HashMap<String, String> rc = new HashMap<String, String>();
@@ -563,5 +561,13 @@ public class MOPRepository {
 
     public void setRemoteRepositories(HashMap<String, String> remoteRepositories) {
         this.remoteRepositories = remoteRepositories;
+    }
+
+    public boolean isIncludeOptional() {
+        return includeOptional;
+    }
+
+    public void setIncludeOptional(boolean includeOptional) {
+        this.includeOptional = includeOptional;
     }
 }
