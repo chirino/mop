@@ -7,6 +7,8 @@
  **************************************************************************************/
 package org.fusesource.mop.support;
 
+import java.util.ArrayList;
+
 import org.fusesource.mop.MOP;
 
 /**
@@ -115,6 +117,33 @@ public class ArtifactId {
     }
 
     public String toString() {
-        return "" + groupId + ":" + artifactId + ":" + type + (classifier != null ? ":" + classifier : "") + ":" + version;
+        ArrayList<String> parts = new ArrayList<String>(5);
+
+        // Complex if strucutre here is that we only generate string that can be parsed.
+        // even if we are currently set with an invalid combination of properties.
+        if( groupId==null ) {
+            parts.add(artifactId);
+        } else {
+            parts.add(groupId);
+            parts.add(artifactId);
+            if( version!=null ) {
+                if( type!=null ) {
+                    parts.add(type);
+                    if( classifier!=null ) {
+                        parts.add(classifier);
+                    }
+                }
+                parts.add(version);
+            }
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if( sb.length()!=0 ) {
+                sb.append(':');
+            }
+            sb.append(part);
+        }
+        return sb.toString();
     }
 }

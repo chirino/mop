@@ -29,7 +29,7 @@ public class CloudMixAgent {
      * Starts a CloudMix agent
      */
     @Command
-    public ProcessRunner cloudmixAgent(MOP mop, @Optional String url, @Optional String profile, @Optional String workDir) throws Exception {
+    public void cloudmixAgent(MOP mop, @Optional String url, @Optional String profile, @Optional String workDir) throws Exception {
         mop.setSystemProperty("agent.controller.uri", url);
         mop.setSystemProperty("agent.profile", profile);
         mop.setSystemProperty("agent.workdir", workDir);
@@ -46,7 +46,7 @@ public class CloudMixAgent {
         commands.add("--port");
         commands.add(port);
 
-        return mop.processCommandLine(commands);
+        mop.executeCommand(commands);
     }
 
 

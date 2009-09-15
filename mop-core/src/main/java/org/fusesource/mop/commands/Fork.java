@@ -7,17 +7,16 @@
  **************************************************************************************/
 package org.fusesource.mop.commands;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Arrays;
-import java.util.ArrayList;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
-import org.fusesource.mop.ProcessRunner;
 import org.fusesource.mop.support.ArtifactId;
 
 /**
@@ -30,7 +29,7 @@ public class Fork {
      * Forks a new child JVM and executes the remaining arguments as a child MOP process
      */
     @Command
-    public ProcessRunner fork(MOP mop, LinkedList<String> args) throws Exception {
+    public void fork(MOP mop, LinkedList<String> args) throws Exception {
         LOG.info("forking MOP with " + args);
 
         // TODO we could try find a mop jar on the URL class loader?
@@ -77,7 +76,7 @@ public class Fork {
         newArgs.addAll(args);
 
         LOG.debug("About to execute: " + newArgs);
-        return mop.exec(newArgs);
+        mop.exec(newArgs);
     }
 
     private boolean isWindows() {

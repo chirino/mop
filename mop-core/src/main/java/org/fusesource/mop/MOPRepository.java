@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.LinkedHashMap;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -65,12 +66,11 @@ public class MOPRepository {
     private boolean online = System.getProperty("mop.online", "true").equals("true");
     private boolean transitive = System.getProperty("mop.include.transitive", "true").equals("true");
     private boolean includeOptional = System.getProperty("mop.include.includeOptional", "false").equals("true");
-    private boolean alwaysCheckUserLocalRepo = System.getProperty("mop.always-check-local-repo", "false").equals("true");
+    private String localRepoUpdatePolicy = System.getProperty("mop.repo.local.check", ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
 
     private PlexusContainer container;
     private File localRepo;
-    private String[] remoteRepos;
-    private HashMap<String, String> remoteRepositories = getDefaultRepositories();
+    private LinkedHashMap<String, String> remoteRepositories = getDefaultRepositories();
 
 
     /**
@@ -137,15 +137,13 @@ public class MOPRepository {
                 if (t.equals("installed")) {
                     Set<String> list = database.listInstalled();
                     for (String s : list) {
-                        ArtifactId id = new ArtifactId();
-                        id.strictParse(s);
+                        ArtifactId id = ArtifactId.strictParse(s);
                         rc.add(id);
                     }
                 } else if (t.equals("all")) {
                     Set<String> list = database.listAll();
                     for (String s : list) {
-                        ArtifactId id = new ArtifactId();
-                        id.strictParse(s);
+                        ArtifactId id = ArtifactId.strictParse(s);
                         rc.add(id);
                     }
                 } else {
@@ -328,23 +326,8 @@ public class MOPRepository {
         Logger.debug("Resolving artifact " + id);
 
         RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
-        List<ArtifactRepository> remoteRepoList = new ArrayList<ArtifactRepository>();
-        if (online) {
-            addDefaultRemoteRepos(repositorySystem, remoteRepoList);
-            if (remoteRepos != null) {
-                int counter = 1;
-                ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-                DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
-                for (String remoteRepo : remoteRepos) {
-                    String repoid = "repo" + (counter++);
-                    Logger.debug("Adding repository with id: " + id + " url: " + remoteRepo);
-                    ArtifactRepository repo = repositorySystem.createArtifactRepository(repoid, remoteRepo, layout, repositoryPolicy, repositoryPolicy);
-                    remoteRepoList.add(repo);
-                }
-            }
-            remoteRepoList.add(repositorySystem.createDefaultRemoteRepository());
-        }
 
+        List<ArtifactRepository> remoteRepositories = createRemoteRepositories(repositorySystem);
         ArtifactRepository localRepository = createLocalRepository(repositorySystem, "mop.local", getLocalRepo().getAbsolutePath(), false);
 
         // If group id is not set.. we can still look it up in the db
@@ -357,7 +340,7 @@ public class MOPRepository {
                     if (id.getGroupId() == null) {
                         Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
                         if (rc.isEmpty()) {
-                            throw new Exception("Please qualify a group id: No local artifacts match: "+id);
+                            throw new Exception("Please qualify a group id: No local artifacts match: "+id.getArtifactId());
                         }
                         if (rc.size() > 1) {
                             System.out.println("Local artifacts that match:");
@@ -367,8 +350,7 @@ public class MOPRepository {
                             throw new Exception("Please qualify a group id: Multiple local artifacts match: "+id);
                         }
                         id.setGroupId(rc.keySet().iterator().next());
-
-                        // We could propably figure out the classifier/type/version too..
+                        Logger.debug("Resolving artifact " + id);
                     }
 
                 }
@@ -407,7 +389,7 @@ public class MOPRepository {
                 .setResolveRoot(true)
                 .setResolveTransitively(isTransitive())
                 .setLocalRepository(localRepository)
-                .setRemoteRepositories(remoteRepoList)
+                .setRemoteRepositories(remoteRepositories)
                 .setOffline(!online)
                 .setCollectionFilter(filters);
 
@@ -435,7 +417,7 @@ public class MOPRepository {
         if( Logger.isDebug() ) {
             Logger.debug("  Resolved: "+id);
             for (Artifact a : rc) {
-                Logger.debug("    depends on: " + a.getArtifactId() + ", scope: " + a.getScope() +", optional: "+a.isOptional()+ ", file: " + a.getFile());
+                Logger.debug("    depends on: " + a.getId() + ", scope: " + a.getScope() +", optional: "+a.isOptional()+ ", file: " + a.getFile());
             }
         }
 
@@ -523,21 +505,28 @@ public class MOPRepository {
      * Adds some default remote repositories
      * 
      * @param repositorySystem
-     * @param remoteRepoList
      */
-    protected void addDefaultRemoteRepos(RepositorySystem repositorySystem, List<ArtifactRepository> remoteRepoList) {
+    protected List<ArtifactRepository> createRemoteRepositories(RepositorySystem repositorySystem) {
+
+        List<ArtifactRepository> rc = new ArrayList<ArtifactRepository>();
 
         String mavenRepositoryDir = System.getProperty("user.home", ".") + "/.m2/repository";
-        remoteRepoList.add(createLocalRepository(repositorySystem, "local", mavenRepositoryDir, true));
+        rc.add(createLocalRepository(repositorySystem, RepositorySystem.DEFAULT_LOCAL_REPO_ID, mavenRepositoryDir, true));
 
         DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-        repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
 
+        if( online ) {
+            repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_DAILY);
+        } else {
+            repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
+        }
 
         for (Map.Entry<String, String> entry : remoteRepositories.entrySet()) {
-            remoteRepoList.add(repositorySystem.createArtifactRepository(entry.getKey(), entry.getValue(), layout, repositoryPolicy, repositoryPolicy));
+            rc.add(repositorySystem.createArtifactRepository(entry.getKey(), entry.getValue(), layout, repositoryPolicy, repositoryPolicy));
         }
+
+        return rc;
     }
 
     private ArtifactRepository createLocalRepository(RepositorySystem repositorySystem, String id, String path, boolean asRemote) {
@@ -555,9 +544,10 @@ public class MOPRepository {
 
         //Always check local repo for updates:
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-        if (alwaysCheckUserLocalRepo) {
-            repositoryPolicy = new ArtifactRepositoryPolicy();
-            repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
+        if( online ) {
+            repositoryPolicy.setUpdatePolicy(localRepoUpdatePolicy);
+        } else {
+            repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
         }
         repositoryPolicy.setChecksumPolicy(ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE);
         localRepository[0] = repositorySystem.createArtifactRepository(id, "file://" + path, layout, repositoryPolicy, repositoryPolicy);
@@ -566,8 +556,11 @@ public class MOPRepository {
     }
 
 
-    private static HashMap<String, String> getDefaultRepositories() {
-        HashMap<String, String> rc = new HashMap<String, String>();
+    private static LinkedHashMap<String, String> getDefaultRepositories() {
+        LinkedHashMap<String, String> rc = new LinkedHashMap<String, String>();
+
+        // We could propably load a property file from the base dir to get this list.
+        rc.put(RepositorySystem.DEFAULT_REMOTE_REPO_ID, RepositorySystem.DEFAULT_REMOTE_REPO_URL);
         rc.put("fusesource.m2", "http://repo.fusesource.com/maven2");
         rc.put("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot");
 
@@ -576,6 +569,7 @@ public class MOPRepository {
         rc.put("cloudmix.release", "http://cloudmix.fusesource.org/repo/release");
         rc.put("mop.snapshot", "http://mop.fusesource.org/repo/snapshot");
         rc.put("mop.release", "http://mop.fusesource.org/repo/release");
+
         return rc;
     }
 
@@ -623,19 +617,15 @@ public class MOPRepository {
     }
 
     public boolean isAlwaysCheckUserLocalRepo() {
-        return alwaysCheckUserLocalRepo;
+        return ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS.equals(localRepoUpdatePolicy);
     }
 
     public void setAlwaysCheckUserLocalRepo(boolean alwaysCheckUserLocalRepo) {
-        this.alwaysCheckUserLocalRepo = alwaysCheckUserLocalRepo;
-    }
-
-    public String[] getRemoteRepos() {
-        return remoteRepos;
-    }
-
-    public void setRemoteRepos(String[] remoteRepos) {
-        this.remoteRepos = remoteRepos;
+        if( alwaysCheckUserLocalRepo ) {
+            localRepoUpdatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS;
+        } else {
+            localRepoUpdatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER;
+        }
     }
 
     public String getScope() {
@@ -662,11 +652,11 @@ public class MOPRepository {
         this.transitive = transitive;
     }
 
-    public HashMap<String, String> getRemoteRepositories() {
+    public LinkedHashMap<String, String> getRemoteRepositories() {
         return remoteRepositories;
     }
 
-    public void setRemoteRepositories(HashMap<String, String> remoteRepositories) {
+    public void setRemoteRepositories(LinkedHashMap<String, String> remoteRepositories) {
         this.remoteRepositories = remoteRepositories;
     }
 

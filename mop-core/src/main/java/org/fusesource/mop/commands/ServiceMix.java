@@ -39,8 +39,8 @@ public class ServiceMix implements ConfiguresMop {
         File root = getRoot();
         
         LOG.info(String.format("Starting ServiceMix %s", version));
-        final ProcessRunner runner = mop.exec(getCommand(root));
-        final ShutdownHook hook = new ShutdownHook(runner);
+        mop.exec(getCommand(root));
+        final ShutdownHook hook = new ShutdownHook();
         Runtime.getRuntime().addShutdownHook(hook);
 
         for (String param : params) {
@@ -50,7 +50,10 @@ public class ServiceMix implements ConfiguresMop {
             FileUtils.copyFileToDirectory(file, deployFolder);            
         }
 
-        runner.join();
+        ProcessRunner runner = mop.getProcessRunner();
+        if( runner!=null ) {
+            runner.join();
+        }
         LOG.info("ServiceMix has been stopped");
         
         //ServiceMix instance has been stopped -- we no longer need the shutdown hook to kill it
@@ -107,19 +110,19 @@ public class ServiceMix implements ConfiguresMop {
     
     private final class ShutdownHook extends Thread {
 
-        private final ProcessRunner runner;
-
-        private ShutdownHook(ProcessRunner runner) {
+        private ShutdownHook() {
             super("MOP - ServiceMix shutdown hook thread");
             setDaemon(true);
-            this.runner = runner;
         }
         
         @Override
         public void run() {
             try {
-                LOG.info("Killing the forked ServiceMix instance");
-                runner.kill();
+                ProcessRunner runner = mop.getProcessRunner();
+                if( runner!=null ) {
+                    LOG.info("Killing the forked ServiceMix instance");
+                    runner.kill();
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }

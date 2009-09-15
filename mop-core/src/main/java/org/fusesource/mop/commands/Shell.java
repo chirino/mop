@@ -30,13 +30,13 @@ public class Shell implements ConfiguresMop {
      * Forks a new child process by running an external command
      */
     @Command
-    public ProcessRunner shell(File command, List<String> arguments) throws Exception {
+    public void shell(File command, List<String> arguments) throws Exception {
         LOG.info("Running external shell script " + command);
 
         List<String> commands = new LinkedList<String>();
         commands.add(command.toString());
         commands.addAll(arguments);
-        return mop.exec(commands);
+        mop.exec(commands);
     }
 
     public void configure(MOP mop) {

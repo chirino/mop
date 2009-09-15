@@ -56,7 +56,7 @@ public class MethodCommandDefinition extends CommandDefinition {
     }
 
     @Override
-    public ProcessRunner executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
+    public void executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
         // lets inject fields
         for (Class<? extends Object> beanType = bean.getClass(); beanType != Object.class; beanType = beanType.getSuperclass()) {
             Field[] fields = beanType.getDeclaredFields();
@@ -116,13 +116,7 @@ public class MethodCommandDefinition extends CommandDefinition {
             configuresMop.configure(mop);
         }
         try {
-            Object value = method.invoke(bean, args);
-            if (value instanceof ProcessRunner) {
-                return (ProcessRunner) value;
-            } else if (value != null) {
-                LOG.warn("Could not convert return value: " + value + " of type " + value.getClass().getName() + " to a ProcessRunner");
-            }
-            return null;
+            method.invoke(bean, args);
         } catch (Exception e) {
             LOG.error("Failed to invoke " + method + " with args " + Arrays.asList(args) + " due to: " + e, e);
             throw e;

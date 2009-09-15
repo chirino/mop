@@ -15,6 +15,7 @@ import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLClassLoader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,6 +23,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.LinkedHashMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -29,12 +31,13 @@ import java.util.jar.Manifest;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
+import org.apache.commons.cli.PosixParser;
+import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
 
 import org.codehaus.plexus.PlexusContainer;
-import org.codehaus.plexus.tools.cli.AbstractCli;
 
 import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.commands.Fork;
@@ -46,13 +49,13 @@ import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
 import org.fusesource.mop.support.Logger;
 import org.fusesource.mop.support.MethodCommandDefinition;
-
+import static org.fusesource.mop.support.OptionBuilder.ob;
 
 /**
  * Runs a Java class from an artifact loaded from the local maven repository
  * using optional remote repositories.
  */
-public class MOP extends AbstractCli {
+public class MOP {
 
     private static final transient Log LOG = LogFactory.getLog(org.fusesource.mop.MOP.class);
 
@@ -72,7 +75,95 @@ public class MOP extends AbstractCli {
     private ProcessRunner processRunner;
     private Map<String,String> systemProperties = new HashMap<String, String>();
 
+    static public Options createOptions() {
+        Options options = new Options();
+        options.addOption("h", "help",    false, "Display help information");
+        options.addOption("o", "offline", false, "Work offline");
+        options.addOption("X", "debug",   false, "Produce execution debug output");
+
+        options.addOption(ob()
+                .id("n")
+                .name("no-repos")
+                .description("Do not use any default repos").op());
+
+        options.addOption(ob()
+                .id("l")
+                .name("local")
+                .arg("directory")
+                .description("Specifies the local mop repo").op());
+
+        options.addOption(ob()
+                .id("r")
+                .name("repo")
+                .arg("repo")
+                .description("Add a remote maven repo").op());
+
+        options.addOption(ob()
+                .id("s")
+                .name("scope")
+                .arg("scop")
+                .description("Maven scope of transitive dependencies to include, defaults to 'runtime'").op());
+
+        return options;
+    }
+
+    public void displayHelp() {
+        System.err.flush();
+        String app = System.getProperty("mop.application", "mop");
+
+        // The commented out line is 80 chars long.  We have it here as a visual reference
+//      p("                                                                                ");
+        p();
+        p("Usage: "+ app +" [options] <command>");
+        p();
+        p("Description:");
+        p();
+        pw("  mop is a tool for running Java code on the command line using maven repositories to download code and create classpaths.", 2);
+        p();
+
+        p("Options:");
+        p();
+        PrintWriter out = new PrintWriter(System.out);
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printOptions(out, 78, createOptions(), 2, 2);
+        out.flush();
+        p();
+
+        checkCommandsLoaded();
+        p("Commands:");
+        p();
+        for (Map.Entry<String, CommandDefinition> entry : commands.entrySet()) {
+            CommandDefinition command = entry.getValue();
+            pw("  * "+entry.getKey()+": "+removeNewLines(command.getDescription()), 4);
+            pw("      usage: "+app+" [options] "+entry.getKey()+" "+removeNewLines(command.getUsage()), 6);
+            p();
+        }
+
+        p("Where:");
+        p();
+        p("  <repo>     is of the format: repo_id=repo_url");
+        p("  <artifact> is of the format: ");
+        p("             [groupId:]artifactId[[:type[:classifier]]:version] [+<artifact>]");
+        p();
+        p("Learn more at: http://mop.fusesource.org/");
+    }
+
+    private void pw(String message, int indent) {
+        PrintWriter out = new PrintWriter(System.out);
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printWrapped(out, 78, indent, message);
+        out.flush();
+    }
+
     public static void main(String[] args) {
+
+        String jv = System.getProperty("java.version").substring(0, 3);
+        if (jv.compareTo("1.5") < 0) {
+            System.err.println("The Launch Agent requires jdk 1.5 or higher to run, the current java version is " + System.getProperty("java.version"));
+            System.exit(-1);
+            return;
+        }
+
         MOP mop = new MOP();
         int exitValue = mop.executeAndWait(args);
         System.exit(exitValue);
@@ -86,59 +177,290 @@ public class MOP extends AbstractCli {
      */
     public int executeAndWait(String[] args) {
         int answer = execute(args);
+        int answer1 = answer;
         if (processRunner != null) {
-            answer = processRunner.join();
+            answer1 = processRunner.join();
         }
+        answer = answer1;
         return answer;
     }
 
+    public int execute(String[] args) {
+        CommandLine cli = null;
+        try {
+            cli = new PosixParser().parse(createOptions(), args, true);
+        } catch (ParseException e) {
+            System.err.println( "Unable to parse command line options: " + e.getMessage() );
+            displayHelp();
+            return 1;
+        }
 
-    public Options buildCliOptions(Options options) {
-        this.options = options;
-        options.addOption("l", "local", true, "Specifies the local mop repo");
-        options.addOption("r", "repo", true, "Specifies a remote maven repo");
-        options.addOption("o", "online", false, "Toggle online mode");
-        options.addOption("s", "scope", true, "Maven scope of transitive dependencies to include, defaults to 'compile'");
-        return options;
+        if( cli.hasOption("h") ) {
+            displayHelp();
+            return 0;
+        }
+
+        // lets process the options
+        Logger.debug = cli.hasOption("X");
+
+        if( cli.hasOption("n") ) {
+            getRemoteRepositories().clear();
+        }
+
+        repository.setScope(cli.getOptionValue("s", "runtime"));
+        String[] repos = cli.getOptionValues("r");
+        if( repos!=null ) {
+            for (String repo : repos) {
+                String[] rc = repo.split("=", 2);
+                if( rc.length != 2 ) {
+                    System.err.println("Invalid repository.  Expected format is: <id>=<url>, actual: "+repo);
+                    displayHelp();
+                    return 1;
+                }
+                getRemoteRepositories().put(rc[0], rc[1]);
+            }
+        }
+
+        repository.setOnline(!cli.hasOption("o"));
+        Logger.debug("online mode: " + repository.isOnline());
+
+        String localRepo = cli.getOptionValue('l');
+        if (localRepo != null) {
+            repository.setLocalRepo(new File(localRepo));
+        }
+
+        // now the remaining command line args
+        try {
+            LinkedList<String> argList = new LinkedList<String>(cli.getArgList());
+            executeCommand(argList);
+        } catch (UsageException e) {
+            displayHelp();
+            return 1;
+        } catch (Throwable e) {
+            System.err.println();
+            System.err.println("Failed: " + e);
+            e.printStackTrace();
+            Set<Throwable> exceptions = new HashSet<Throwable>();
+            exceptions.add(e);
+            for (int i = 0; i < 10; i++) {
+                e = e.getCause();
+                if (e != null && exceptions.add(e)) {
+                    System.err.println("Reason: " + e);
+                    e.printStackTrace();
+                } else {
+                    break;
+                }
+            }
+            return 2;
+        }
+        return 0;
     }
 
-    @Override
-    public void displayHelp() {
-        System.out.println();
-        System.out.println("mop: http://mop.fusesource.org/");
-        System.out.println();
-        System.out.println("mop is a tool for running Java code on the command line");
-        System.out.println("using maven repositories to download code and create classpaths");
-        System.out.println();
+    public void executeCommand(LinkedList<String> argList) throws Exception {
+        resetValues();
+        if (argList.isEmpty()) {
+            throw new UsageException("No command specified.");
+        }
 
+        String command = argList.removeFirst();
+        if (command.equals("exec")) {
+            execJava(argList);
+        } else if (command.equals("execjar")) {
+            execJarCommand(argList);
+        } else if (command.equals("jar")) {
+            jarCommand(argList);
+        } else if (command.equals("run")) {
+            runCommand(argList);
+        } else if (command.equals("echo")) {
+            echoCommand(argList);
+        } else if (command.equals("classpath")) {
+            classpathCommand(argList);
+        } else if (command.equals("copy")) {
+            copyCommand(argList);
+        } else if (command.equals("war")) {
+            warCommand(argList);
+        } else if (command.equals("help")) {
+            helpCommand(argList);
+        } else if (command.equals("list")) {
+            listCommand(argList);
+        } else if (command.equals("uninstall")) {
+            uninstallCommand(argList);
+        } else {
+            tryDiscoverCommand(command, argList);
+        }
+    }
+
+    //-------------------------------------------------------------------------
+    // sub command implementations
+    //-------------------------------------------------------------------------
+    private void execJava(LinkedList<String> argList) throws Exception {
+        assertNotEmpty(argList);
+        artifactIds = parseArtifactList(argList);
+        assertNotEmpty(argList);
+        className = argList.removeFirst();
+        reminingArgs = argList;
+
+        List<File> dependencies = resolveFiles();
+
+        execClass(dependencies);
+    }
+
+    public void execJarCommand(LinkedList<String> argList) throws Exception {
+        assertNotEmpty(argList);
+        artifactIds = parseArtifactList(argList);
+        reminingArgs = argList;
+
+        List<File> dependencies = resolveFiles();
+        setClassNameFromExecutableJar(dependencies);
+
+        execClass(dependencies);
+    }
+
+    private void jarCommand(LinkedList<String> argList) throws Exception {
+        assertNotEmpty(argList);
+        artifactIds = parseArtifactList(argList);
+        reminingArgs = argList;
+
+        List<File> dependencies = resolveFiles();
+        setClassNameFromExecutableJar(dependencies);
+
+        runClass(dependencies);
+    }
+
+    private void runCommand(LinkedList<String> argList) throws Exception, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+        assertNotEmpty(argList);
+        artifactIds = parseArtifactList(argList);
+        assertNotEmpty(argList);
+        className = argList.removeFirst();
+        reminingArgs = argList;
+
+        List<File> dependencies = resolveFiles();
+        runClass(dependencies);
+    }
+
+    private void echoCommand(LinkedList<String> argList) throws Exception {
+        artifactIds = parseArtifactList(argList);
+        String classpath = classpath();
+        System.out.print("java -cp \"" + classpath + "\"");
+        for (String arg : argList) {
+            System.out.print(" \"" + arg + "\"");
+        }
+        p();
+    }
+
+
+    private void classpathCommand(LinkedList<String> argList) throws Exception {
+        artifactIds = parseArtifactList(argList);
+        String classpath = classpath();
+        p(classpath);
+    }
+
+    private void copyCommand(LinkedList<String> argList) throws Exception {
+        assertNotEmpty(argList);
+        artifactIds = parseArtifactList(argList);
+        assertNotEmpty(argList);
+        File targetDir = new File(argList.removeFirst());
+        repository.copy(targetDir, artifactIds);
+    }
+
+
+    protected void warCommand(LinkedList<String> argList) throws Exception {
+        assertNotEmpty(argList);
+        defaultType = "war";
+        artifactIds = parseArtifactList(argList);
+        reminingArgs = argList;
+
+        // lets default the artiact to WAR and then find all the files and pass them in as a command line argumnet
+        repository.setTransitive(false); // We just need the wars.. not the transitive deps.
+        List<File> files = repository.resolveFiles(artifactIds);
+        // We will need transitive deps to load up jettty
+        repository.setTransitive(true);
+
+        LOG.debug("Running war with files: " + files);
+
+
+        LinkedList<String> newArgs = new LinkedList<String>();
+        newArgs.add("jar");
+        newArgs.add("org.mortbay.jetty:jetty-runner:RELEASE");
+        newArgs.addAll(argList);
+        for (File file : files) {
+            newArgs.add(file.toString());
+        }
+
+        LOG.debug("About to run: " + newArgs);
+        executeCommand(newArgs);
+    }
+
+    protected void helpCommand(LinkedList<String> argList) {
+        if (argList.isEmpty()) {
+            displayHelp();
+            return;
+        }
+        for (String commandName : argList) {
+            checkCommandsLoaded();
+            CommandDefinition command = commands.get(commandName);
+            if (command == null) {
+                p("No such command '" + command + "'");
+            } else {
+                p();
+                p("mop command: " + command.getName());
+                p();
+                p("usage:");
+                p("\t mop [options] " + command.getName() + " " + command.getUsage());
+                p();
+                p(command.getDescription());
+                p();
+            }
+        }
+    }
+
+
+    private void listCommand(LinkedList<String> argList) throws Exception {
+        String type = "installed";
+        if (!argList.isEmpty()) {
+            type = argList.removeFirst();
+        }
+
+        this.artifactIds = parseArtifactList(argList);
+        Set<ArtifactId> artifactIds = repository.list(type);
+        for (ArtifactId a : artifactIds) {
+            System.out.println(a);
+        }
+    }
+
+
+
+    private void uninstallCommand(LinkedList<String> argList) throws Exception {
+        artifactIds = parseArtifactList(argList);
+        List<String> errorMessages = repository.uninstall(artifactIds);
+        for (String errorMessage : errorMessages) {
+            p(errorMessage);
+        }
+    }
+
+    protected void tryDiscoverCommand(String commandText, LinkedList<String> argList) throws Exception {
         checkCommandsLoaded();
 
-        System.out.println("Commands:");
-
-        for (Map.Entry<String, CommandDefinition> entry : commands.entrySet()) {
-            String description = removeNewLines(entry.getValue().getDescription());
-            // lets remove any newlines
-            System.out.printf("\t%-20s : %s\n", entry.getKey(), description);
+        defaultVersion = DEFAULT_VERSION;
+        CommandDefinition command = commands.get(commandText);
+        if (command == null) {
+            // if we have used a colon then extract the version argument
+            int idx = commandText.lastIndexOf(':');
+            if (idx > 1) {
+                defaultVersion = commandText.substring(idx + 1);
+                commandText = commandText.substring(0, idx);
+                command = commands.get(commandText);
+            }
         }
-
-        System.out.println();
-
-        System.out.println();
-        System.out.println("Usage:");
-        for (CommandDefinition command : commands.values()) {
-            System.out.println(String.format("  mop [options] %-20s %s", command.getName(), removeNewLines(command.getUsage())));
+        if (command == null) {
+            throw new UsageException("Unknown command '" + commandText + "'");
         }
-        System.out.println();
-        System.out.println("  where <artifact> is of the format: [groupId:]artifactId[[:type[:classifier]]:version] [+<artifact>]");
-        System.out.println();
-
-        System.out.println("Options:");
-        PrintWriter out = new PrintWriter(System.out);
-        HelpFormatter formatter = new HelpFormatter();
-        formatter.printOptions(out, 78, options, 2, 2);
-        out.flush();
-        System.out.println();
+        command.executeCommand(this, argList);
     }
+
+    //-------------------------------------------------------------------------
+    // Other plublic methods... perhaps this needs a little clean up...
+    //-------------------------------------------------------------------------
 
     public Artifacts getArtifacts(LinkedList<String> argList) throws UsageException {
         artifactIds = parseArtifactList(argList);
@@ -156,6 +478,81 @@ public class MOP extends AbstractCli {
             }
         };
     }
+
+    /**
+     * Appends the currently defined system properties to this command line as a series of <code>-Dname=value</code> parameters
+     */
+    public void addSystemProperties(List<String> commandLine) {
+        Set<Map.Entry<String, String>> entries = systemProperties.entrySet();
+        for (Map.Entry<String, String> entry : entries) {
+            commandLine.add("-D" + entry.getKey() +"=" + entry.getValue());
+        }
+    }
+
+    public void exec(List<String> commandLine) throws Exception {
+        Logger.debug("execing: " + commandLine);
+
+        String[] cmd = commandLine.toArray(new String[commandLine.size()]);
+
+        String[] env = {};
+        if (isWindows()) {
+        	
+        	Map<String, String> envMap = System.getenv();
+        	env = new String[envMap.size()];
+        	int ind = 0;
+        	for (Map.Entry<String, String> entry : envMap.entrySet()) {
+        		env[ind++] = entry.getKey() + "=" + entry.getValue();
+//	            String javaHome = System.getProperty("java.home");
+//	            if (javaHome != null) {
+//	            	env = new String[]{"JAVA_HOME=" + javaHome};
+//	            }
+        	}
+        }
+        
+
+        processRunner = ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
+    }
+
+    public String classpath() throws Exception {
+        return repository.classpath(artifactIds);
+    }
+
+    public ArtifactId parseArtifactId(String value) throws UsageException {
+        ArtifactId id = ArtifactId.parse(value, defaultVersion, defaultType);
+        if (id==null) {
+            throw new UsageException("Invalid artifactId: " + value);
+        }
+        return id;
+    }
+
+    public Map<String, String> getSystemProperties() {
+        return systemProperties;
+    }
+
+    /**
+     * Adds the system property used for any child forked JVM if the value is not null else remove the property
+     */
+    public void setSystemProperty(String name, String value) {
+        if (value != null) {
+            systemProperties.put(name, value);
+            System.setProperty(name, value);
+        }
+        else {
+            systemProperties.remove(name);
+        }
+    }
+
+
+    /**
+     * Returns true if this is an additional artifact string; typically if it begins with +
+     */
+    public boolean isAnotherArtifactId(String arg) {
+        return arg.startsWith("+");
+    }
+
+    //-------------------------------------------------------------------------
+    // Implementation methods
+    //-------------------------------------------------------------------------
 
     private Set<Artifact> resolveArtifacts() throws Exception {
         return repository.resolveArtifacts(artifactIds);
@@ -187,81 +584,9 @@ public class MOP extends AbstractCli {
         return buffer.toString();
     }
 
-    public void invokePlexusComponent(CommandLine cli, PlexusContainer container) throws Exception {
-        repository.setContainer(container);
-        // lets process the options
-        Logger.debug = cli.hasOption('X');
-        repository.setScope(cli.getOptionValue('s', "runtime"));
-        repository.setRemoteRepos(cli.getOptionValues('r'));
-        
-        repository.setOnline(!cli.hasOption('o'));
-        Logger.debug("online mode: " + repository.isOnline());
 
-        String localRepo = cli.getOptionValue('l');
-        if (localRepo != null) {
-            repository.setLocalRepo(new File(localRepo));
-        }
 
-        // now the remaining command line args
-        try {
-            LinkedList<String> argList = new LinkedList<String>(cli.getArgList());
-            processCommandLine(argList);
-        } catch (UsageException e) {
-            displayHelp();
-            throw e;
-        } catch (Throwable e) {
-            System.err.println();
-            System.err.println("Failed: " + e);
-            e.printStackTrace();
-            Set<Throwable> exceptions = new HashSet<Throwable>();
-            exceptions.add(e);
-            for (int i = 0; i < 10; i++) {
-                e = e.getCause();
-                if (e != null && exceptions.add(e)) {
-                    System.err.println("Reason: " + e);
-                    e.printStackTrace();
-                } else {
-                    break;
-                }
-            }
-        }
-    }
 
-    public ProcessRunner processCommandLine(LinkedList<String> argList) throws Exception {
-        resetValues();
-
-        if (argList.isEmpty()) {
-            displayHelp();
-            return null;
-        }
-        String command = argList.removeFirst();
-        if (command.equals("exec")) {
-            return execJava(argList);
-        } else if (command.equals("execjar")) {
-            return execJarCommand(argList);
-        } else if (command.equals("jar")) {
-            jarCommand(argList);
-        } else if (command.equals("run")) {
-            runCommand(argList);
-        } else if (command.equals("echo")) {
-            echoCommand(argList);
-        } else if (command.equals("classpath")) {
-            classpathCommand(argList);
-        } else if (command.equals("copy")) {
-            copyCommand(argList);
-        } else if (command.equals("war")) {
-            warCommand(argList);
-        } else if (command.equals("help")) {
-            helpCommand(argList);
-        } else if (command.equals("list")) {
-            listCommand(argList);
-        } else if (command.equals("uninstall")) {
-            uninstallCommand(argList);
-        } else {
-            return tryDiscoverCommand(command, argList);
-        }
-        return null;
-    }
 
     protected void resetValues() {
         // lets reset values in case we chain things together...
@@ -275,95 +600,8 @@ public class MOP extends AbstractCli {
         //systemProperties.clear();
     }
 
-    private void uninstallCommand(LinkedList<String> argList) throws Exception {
-        artifactIds = parseArtifactList(argList);
-        List<String> errorMessages = repository.uninstall(artifactIds);
-        for (String errorMessage : errorMessages) {
-            System.out.println(errorMessage);
-        }
-    }
 
-    private void listCommand(LinkedList<String> argList) throws Exception {
-        String type = "installed";
-        if (!argList.isEmpty()) {
-            type = argList.removeFirst();
-        }
-
-        this.artifactIds = parseArtifactList(argList);
-        Set<ArtifactId> artifactIds = repository.list(type);
-        for (ArtifactId a : artifactIds) {
-            System.out.println(a);
-        }
-    }
-
-    protected ProcessRunner tryDiscoverCommand(String commandText, LinkedList<String> argList) throws Exception {
-        checkCommandsLoaded();
-
-        defaultVersion = DEFAULT_VERSION;
-        CommandDefinition command = commands.get(commandText);
-        if (command == null) {
-            // if we have used a colon then extract the version argument
-            int idx = commandText.lastIndexOf(':');
-            if (idx > 1) {
-                defaultVersion = commandText.substring(idx + 1);
-                commandText = commandText.substring(0, idx);
-                command = commands.get(commandText);
-            }
-        }
-        if (command == null) {
-            throw new UsageException("Unknown command '" + commandText + "'");
-        }
-        return command.executeCommand(this, argList);
-    }
-
-    protected void helpCommand(LinkedList<String> argList) {
-        if (argList.isEmpty()) {
-            displayHelp();
-            return;
-        }
-        for (String commandName : argList) {
-            checkCommandsLoaded();
-            CommandDefinition command = commands.get(commandName);
-            if (command == null) {
-                System.out.println("No such command '" + command + "'");
-            } else {
-                System.out.println();
-                System.out.println("mop command: " + command.getName());
-                System.out.println();
-                System.out.println("usage:");
-                System.out.println("\t mop [options] " + command.getName() + " " + command.getUsage());
-                System.out.println();
-                System.out.println(command.getDescription());
-                System.out.println();
-            }
-        }
-    }
-
-
-    private ProcessRunner execJava(LinkedList<String> argList) throws Exception {
-        assertNotEmpty(argList);
-        artifactIds = parseArtifactList(argList);
-        assertNotEmpty(argList);
-        className = argList.removeFirst();
-        reminingArgs = argList;
-
-        List<File> dependencies = resolveFiles();
-
-        return execClass(dependencies);
-    }
-
-    public ProcessRunner execJarCommand(LinkedList<String> argList) throws Exception {
-        assertNotEmpty(argList);
-        artifactIds = parseArtifactList(argList);
-        reminingArgs = argList;
-
-        List<File> dependencies = resolveFiles();
-        setClassNameFromExecutableJar(dependencies);
-
-        return execClass(dependencies);
-    }
-
-    protected ProcessRunner execClass(List<File> dependencies) throws Exception {
+    protected void execClass(List<File> dependencies) throws Exception {
         List<String> commandLine = new ArrayList<String>();
         commandLine.add("java");
         addSystemProperties(commandLine);
@@ -372,89 +610,13 @@ public class MOP extends AbstractCli {
         commandLine.add(className);
         commandLine.addAll(reminingArgs);
 
-        return exec(commandLine);
-    }
-
-    /**
-     * Appends the currently defined system properties to this command line as a series of <code>-Dname=value</code> parameters
-     */
-    public void addSystemProperties(List<String> commandLine) {
-        Set<Map.Entry<String, String>> entries = systemProperties.entrySet();
-        for (Map.Entry<String, String> entry : entries) {
-            commandLine.add("-D" + entry.getKey() +"=" + entry.getValue());
-        }
-    }
-
-    public ProcessRunner exec(List<String> commandLine) throws Exception {
-        Logger.debug("execing: " + commandLine);
-
-        String[] cmd = commandLine.toArray(new String[commandLine.size()]);
-
-        String[] env = {};
-        if (isWindows()) {
-        	
-        	Map<String, String> envMap = System.getenv();
-        	env = new String[envMap.size()];
-        	int ind = 0;
-        	for (Map.Entry<String, String> entry : envMap.entrySet()) {
-        		env[ind++] = entry.getKey() + "=" + entry.getValue();
-//	            String javaHome = System.getProperty("java.home");
-//	            if (javaHome != null) {
-//	            	env = new String[]{"JAVA_HOME=" + javaHome};
-//	            }
-        	}
-        }
-        
-
-        processRunner = ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
-        return processRunner;
-
+        exec(commandLine);
     }
 
     private boolean isWindows() {
     	String os = System.getProperty("os.name");
         return os != null && os.toLowerCase().contains("windows") ? true : false;
-    } 
-    
-    private void jarCommand(LinkedList<String> argList) throws Exception {
-        assertNotEmpty(argList);
-        artifactIds = parseArtifactList(argList);
-        reminingArgs = argList;
-
-        List<File> dependencies = resolveFiles();
-        setClassNameFromExecutableJar(dependencies);
-
-        runClass(dependencies);
     }
-
-
-    protected void warCommand(LinkedList<String> argList) throws Exception {
-        assertNotEmpty(argList);
-        defaultType = "war";
-        artifactIds = parseArtifactList(argList);
-        reminingArgs = argList;
-
-        // lets default the artiact to WAR and then find all the files and pass them in as a command line argumnet
-        repository.setTransitive(false); // We just need the wars.. not the transitive deps.
-        List<File> files = repository.resolveFiles(artifactIds);
-        // We will need transitive deps to load up jettty
-        repository.setTransitive(true);
-
-        LOG.debug("Running war with files: " + files);
-
-
-        LinkedList<String> newArgs = new LinkedList<String>();
-        newArgs.add("jar");
-        newArgs.add("org.mortbay.jetty:jetty-runner:RELEASE");
-        newArgs.addAll(argList);
-        for (File file : files) {
-            newArgs.add(file.toString());
-        }
-
-        LOG.debug("About to run: " + newArgs);
-        processCommandLine(newArgs);
-    }
-
 
     protected void setClassNameFromExecutableJar(List<File> dependencies) throws Exception, UsageException {
         // now lets figure out the className from the manifest
@@ -485,16 +647,7 @@ public class MOP extends AbstractCli {
         }
     }
 
-    private void runCommand(LinkedList<String> argList) throws Exception, NoSuchMethodException, IllegalAccessException, InvocationTargetException {
-        assertNotEmpty(argList);
-        artifactIds = parseArtifactList(argList);
-        assertNotEmpty(argList);
-        className = argList.removeFirst();
-        reminingArgs = argList;
 
-        List<File> dependencies = resolveFiles();
-        runClass(dependencies);
-    }
 
     private List<File> resolveFiles() throws Exception {
         return repository.resolveFiles(artifactIds);
@@ -512,33 +665,6 @@ public class MOP extends AbstractCli {
         method.invoke(null, methodArgs);
     }
 
-    private void copyCommand(LinkedList<String> argList) throws Exception {
-        assertNotEmpty(argList);
-        artifactIds = parseArtifactList(argList);
-        assertNotEmpty(argList);
-        File targetDir = new File(argList.removeFirst());
-        repository.copy(targetDir, artifactIds);
-    }
-
-    private void classpathCommand(LinkedList<String> argList) throws Exception {
-        artifactIds = parseArtifactList(argList);
-        String classpath = classpath();
-        System.out.println(classpath);
-    }
-
-    public String classpath() throws Exception {
-        return repository.classpath(artifactIds);
-    }
-
-    private void echoCommand(LinkedList<String> argList) throws Exception {
-        artifactIds = parseArtifactList(argList);
-        String classpath = classpath();
-        System.out.print("java -cp \"" + classpath + "\"");
-        for (String arg : argList) {
-            System.out.print(" \"" + arg + "\"");
-        }
-        System.out.println();
-    }
 
     private ArrayList<ArtifactId> parseArtifactList(LinkedList<String> values) throws UsageException {
         ArrayList<ArtifactId> rc = new ArrayList<ArtifactId>();
@@ -557,31 +683,6 @@ public class MOP extends AbstractCli {
 
     }
 
-    public ArtifactId parseArtifactId(String value) throws UsageException {
-        ArtifactId id = ArtifactId.parse(value, defaultVersion, defaultType);
-        if (id==null) {
-            throw new UsageException("Invalid artifactId: " + value);
-        }
-        return id;
-    }
-
-    public Map<String, String> getSystemProperties() {
-        return systemProperties;
-    }
-
-    /**
-     * Adds the system property used for any child forked JVM if the value is not null else remove the property
-     */
-    public void setSystemProperty(String name, String value) {
-        if (value != null) {
-            systemProperties.put(name, value);
-            System.setProperty(name, value);
-        }
-        else {
-            systemProperties.remove(name);
-        }
-    }
-
     static private class UsageException extends Exception {
         public UsageException(String message) {
             super(message);
@@ -594,10 +695,6 @@ public class MOP extends AbstractCli {
         }
     }
 
-
-    // Implementation methods
-    //-------------------------------------------------------------------------
-    
     void checkCommandsLoaded() {
         if (commands == null) {
             commands = CommandDefinitions.loadCommands(getClass().getClassLoader());
@@ -656,13 +753,15 @@ public class MOP extends AbstractCli {
         commands.put(commandDefinition.getName(), commandDefinition);
     }
 
-    /**
-     * Returns true if this is an additional artifact string; typically if it begins with +
-     */
-    public boolean isAnotherArtifactId(String arg) {
-        return arg.startsWith("+");
+    private void p() {
+        System.out.println();
     }
 
+    private void p(String s) {
+        System.out.println(s);
+    }
+
+    //-------------------------------------------------------------------------
     // Properties
     //-------------------------------------------------------------------------
     public String getClassName() {
@@ -742,10 +841,6 @@ public class MOP extends AbstractCli {
         repository.setOnline(online);
     }
 
-    public void setRemoteRepos(String[] remoteRepos) {
-        repository.setRemoteRepos(remoteRepos);
-    }
-
     public void setScope(String scope) {
         repository.setScope(scope);
     }
@@ -756,10 +851,6 @@ public class MOP extends AbstractCli {
 
     public File getLocalRepo() {
         return repository.getLocalRepo();
-    }
-
-    public String[] getRemoteRepos() {
-        return repository.getRemoteRepos();
     }
 
     public String getScope() {
@@ -784,5 +875,13 @@ public class MOP extends AbstractCli {
 
     public void setRepository(MOPRepository repository) {
         this.repository = repository;
+    }
+
+    public LinkedHashMap<String, String> getRemoteRepositories() {
+        return repository.getRemoteRepositories();
+    }
+
+    public void setRemoteRepositories(LinkedHashMap<String, String> remoteRepositories) {
+        repository.setRemoteRepositories(remoteRepositories);
     }
 }

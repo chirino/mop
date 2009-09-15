@@ -34,21 +34,21 @@ public class CommandLineTest extends TestCase {
     }
 
     public void testClassPathCommand() {
-        int rc = new MOP().execute(new String[]{"-o", "-l", "target/test-repo", "classpath", "javax.servlet:servlet-api:2.3"});
+        int rc = new MOP().execute(new String[]{"-l", "target/test-repo", "classpath", "javax.servlet:servlet-api:2.3"});
         assertEquals(0, rc);
     }
 
     public void testEchoCommand() {
-        int rc = new MOP().execute(new String[]{"-o", "-l", "target/test-repo", "echo", "javax.servlet:servlet-api:2.3", className, arg0, arg1});
+        int rc = new MOP().execute(new String[]{"-l", "target/test-repo", "echo", "javax.servlet:servlet-api:2.3", className, arg0, arg1});
         assertEquals(0, rc);
     }
 
     public void testAritfactLookup() {
         // Online version
-        int rc = new MOP().execute(new String[]{"-o", "-l", "target/test-repo", "classpath", "commons-logging:commons-logging:1.1.1"});
+        int rc = new MOP().execute(new String[]{"-X", "-l", "target/test-repo", "classpath", "commons-logging:commons-logging:1.1.1"});
         assertEquals(0, rc);
         // Offline version
-        rc = new MOP().execute(new String[]{ "-l", "target/test-repo", "classpath", "commons-logging"});
+        rc = new MOP().execute(new String[]{"-X", "-o", "-l", "target/test-repo", "classpath", "commons-logging"});
         assertEquals(0, rc);
     }
     
@@ -63,7 +63,7 @@ public class CommandLineTest extends TestCase {
     }
 
     public void testSpecifyManyRepos() {
-        doRun("-X", "-r", "http://repository.ops4j.org/maven2", "-r", "http://repository.apache.org/content/groups/public", "exec", groupId+":"+artifactId, className, arg0, arg1);
+        doRun("-X", "-r", "ops4j=http://repository.ops4j.org/maven2", "-r", "apache=http://repository.apache.org/content/groups/public", "exec", groupId+":"+artifactId, className, arg0, arg1);
     }
 
     protected void doRun(String... args) {

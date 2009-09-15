@@ -175,14 +175,11 @@ public class Database {
                     HashSet<String> rc = artifacts.get(tx, id);
                     if (rc == null) {
                         rc = new HashSet<String>();
-                        rc.add(mainArtifact);
-                        artifacts.put(tx, id, rc);
-                        indexAdd(tx, artifactIdIndex, id, a.getArtifactId());
-                        indexAdd(tx, typeIndex, id, a.getType());
-                    } else {
-                        rc.add(mainArtifact);
-                        artifacts.put(tx, id, rc);
                     }
+                    rc.add(mainArtifact);
+                    artifacts.put(tx, id, rc);
+                    indexAdd(tx, artifactIdIndex, id, a.getArtifactId());
+                    indexAdd(tx, typeIndex, id, a.getType());
                 }
 
                 root.tx_sequence++;
@@ -272,11 +269,10 @@ public class Database {
     public static Map<String, Set<String>> groupByGroupId(Set<String> values) {
         Map<String, Set<String>> rc = new LinkedHashMap<String, Set<String>>();
         for (String value : values) {
-            ArtifactId id = new ArtifactId();
-            id.strictParse(value);
+            ArtifactId id = ArtifactId.strictParse(value);
             Set<String> t = rc.get(id.getGroupId());
             if (t == null) {
-                t = new LinkedHashSet(5);
+                t = new LinkedHashSet<String>(5);
                 rc.put(id.getGroupId(), t);
             }
             t.add(value);
@@ -291,7 +287,7 @@ public class Database {
                 RootEntity root = RootEntity.load(tx);
                 BTreeIndex<String, HashSet<String>> typeIndex = root.typeIndex.get(tx);
                 HashSet<String> set = typeIndex.get(tx, type);
-                return set == null ? new HashSet() : new HashSet(set);
+                return set == null ? new HashSet<String>() : new HashSet<String>(set);
             }
         });
     }

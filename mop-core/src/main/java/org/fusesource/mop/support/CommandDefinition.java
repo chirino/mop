@@ -95,10 +95,9 @@ public class CommandDefinition {
         this.name = name;
     }
 
-    public ProcessRunner executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
+    public void executeCommand(MOP mop, LinkedList<String> argList) throws Exception {
         this.mop = mop;
 
-        PlexusContainer container = mop.getContainer();
         // lets run the command!
         LinkedList<String> artifacts = new LinkedList<String>();
         LinkedList<String> args = new LinkedList<String>();
@@ -123,7 +122,7 @@ public class CommandDefinition {
         }
 
         LOG.info("About to execute: " + newArguments);
-        return mop.processCommandLine(newArguments);
+        mop.executeCommand(newArguments);
     }
 
 
