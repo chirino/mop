@@ -33,6 +33,12 @@ public class CommandLineTest extends TestCase {
         assertEquals(0, rc);
     }
 
+    public void testScope() {
+        int rc = new MOP().execute(new String[]{"--scope", "compile", "-l", "target/test-repo", "classpath", "javax.servlet:servlet-api:2.3"});
+        assertEquals(0, rc);
+    }
+
+
     public void testClassPathCommand() {
         int rc = new MOP().execute(new String[]{"-l", "target/test-repo", "classpath", "javax.servlet:servlet-api:2.3"});
         assertEquals(0, rc);

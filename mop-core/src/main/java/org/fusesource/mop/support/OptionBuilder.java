@@ -25,10 +25,8 @@ public class OptionBuilder {
     }
 
     public Option op() {
-        Option option = new Option( id!=null ? id : " ", description );
-        option.setLongOpt(name);
+        Option option = new Option( id!=null ? id : " ", name, arg!=null || args>0, description );
         option.setRequired( required );
-        option.setOptionalArg(optional);
         option.setType( type );
         option.setValueSeparator(sperator);
         if( arg !=null && args==-1 ) {

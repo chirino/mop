@@ -33,6 +33,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.GnuParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
@@ -101,7 +102,7 @@ public class MOP {
         options.addOption(ob()
                 .id("s")
                 .name("scope")
-                .arg("scop")
+                .arg("scope")
                 .description("Maven scope of transitive dependencies to include, defaults to 'runtime'").op());
 
         return options;
@@ -188,7 +189,7 @@ public class MOP {
     public int execute(String[] args) {
         CommandLine cli = null;
         try {
-            cli = new PosixParser().parse(createOptions(), args, true);
+            cli = new GnuParser().parse(createOptions(), args, true);
         } catch (ParseException e) {
             System.err.println( "Unable to parse command line options: " + e.getMessage() );
             displayHelp();
@@ -207,7 +208,8 @@ public class MOP {
             getRemoteRepositories().clear();
         }
 
-        repository.setScope(cli.getOptionValue("s", "runtime"));
+        String scope = cli.getOptionValue("s", "runtime");
+        repository.setScope(scope);
         String[] repos = cli.getOptionValues("r");
         if( repos!=null ) {
             for (String repo : repos) {
