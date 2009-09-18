@@ -154,6 +154,9 @@
                     <relocation>
                       <pattern>org.apache</pattern>
                       <shadedPattern>org.fusesource.mop.org.apache</shadedPattern>
+                      <excludes>
+                        <exclude>org.apache.servicemix</exclude>
+                      </excludes>                      
                     </relocation>
                     <relocation>
                       <pattern>org.codehaus</pattern>
