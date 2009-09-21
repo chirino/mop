@@ -156,6 +156,7 @@
                       <shadedPattern>org.fusesource.mop.org.apache</shadedPattern>
                       <excludes>
                         <exclude>org.apache.servicemix</exclude>
+                        <exclude>org.apache.felix.karaf</exclude>
                       </excludes>                      
                     </relocation>
                     <relocation>

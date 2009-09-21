@@ -12,42 +12,35 @@ import java.util.List;
 
 import org.fusesource.mop.Command;
 
-public class ServiceMix extends AbstractContainerBase {
+public class Karaf extends AbstractContainerBase {
         
     @Command
-    public void servicemix(List<String> params) throws Exception {
+    public void karaf(List<String> params) throws Exception {
         installAndLaunch(params);
     }
 
     protected String getContainerName() {
-        return "ServiceMix";
+        return "karaf";
     }
     
     protected String getArtefactId() {
-        return "org.apache.servicemix:apache-servicemix:";
+        return "org.apache.felix.karaf:apache-felix-karaf:";
     }
     
     protected String getPrefix() {
-        return "apache-servicemix-";
+        return "apache-felix-karaf-";
     }
     
     protected String getCommandName() {
-        return "servicemix";
+        return "karaf";
     }
     
     protected List<String> addArgs(List<String> command) {        
-        if (!version.startsWith("3")) {
-            command.add("server");
-        }
         return command;
     }
 
     protected File getDeployFolder(File root) {
-        if (version.startsWith("3")) {
-            return new File(root, "hotdeploy");
-        } else {
-            return new File(root, "deploy");
-        }
+        return new File(root, "deploy");
     }
-
 }
+

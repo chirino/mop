@@ -43,6 +43,7 @@ import org.codehaus.plexus.PlexusContainer;
 import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
+import org.fusesource.mop.commands.Karaf;
 import org.fusesource.mop.commands.ServiceMix;
 import org.fusesource.mop.commands.Shell;
 import org.fusesource.mop.support.ArtifactId;
@@ -732,6 +733,7 @@ public class MOP {
         registerCommandMethods(new Fork());
         registerCommandMethods(new Install());
         registerCommandMethods(new ServiceMix());
+        registerCommandMethods(new Karaf());
         registerCommandMethods(new Shell());
     }
 
