@@ -24,11 +24,7 @@ public class ServiceMix extends AbstractContainerBase {
     }
     
     protected String getArtefactId() {
-        // fool MOP into not shading with leading org.fusesource.mop
-        StringBuffer sb = new StringBuffer();
-        sb.append("org").append(".").append("apache").append(".");
-        sb.append("servicemix").append(":apache-servicemix:");
-        return sb.toString();
+        return "org.apache.servicemix:apache-servicemix:";
     }
     
     protected String getPrefix() {
