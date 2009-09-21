@@ -7,6 +7,7 @@ Description
 [Mop][2] is a small utility for executing Java programs which are stored as artifacts like jars or bundles in a Maven repository.
 
 Mop automatically deals with the following for you
+
 * transitive dependencies
 * downloading artifacts from remote repositories and caching them locally
 * building the application classpath
