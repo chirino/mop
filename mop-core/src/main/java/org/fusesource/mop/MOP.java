@@ -62,6 +62,7 @@ public class MOP {
 
     public static final String DEFAULT_VERSION = "RELEASE";
     public static final String DEFAULT_TYPE = "jar";
+    public static final String MOP_WORKING_DIR_SYSPROPERTY = "org.fusesource.mop.workingdir";
 
     private  MOPRepository repository = new MOPRepository();
     private Options options;
@@ -166,6 +167,15 @@ public class MOP {
         }
 
         MOP mop = new MOP();
+        String workDir = System.getProperty(MOP_WORKING_DIR_SYSPROPERTY);
+        if (workDir != null) {
+            mop.setWorkingDirectory(new File(workDir));
+        } else {
+            String userDir = System.getProperty("user.dir");
+            if (userDir != null) {
+                mop.setWorkingDirectory(new File(userDir));
+            }
+        }
         int exitValue = mop.executeAndWait(args);
         System.exit(exitValue);
     }
@@ -487,7 +497,7 @@ public class MOP {
     public void addSystemProperties(List<String> commandLine) {
         Set<Map.Entry<String, String>> entries = systemProperties.entrySet();
         for (Map.Entry<String, String> entry : entries) {
-            commandLine.add("-D" + entry.getKey() +"=" + entry.getValue());
+            commandLine.add("-D" + entry.getKey() + "=" + entry.getValue());
         }
     }
 
@@ -504,10 +514,6 @@ public class MOP {
         	int ind = 0;
         	for (Map.Entry<String, String> entry : envMap.entrySet()) {
         		env[ind++] = entry.getKey() + "=" + entry.getValue();
-//	            String javaHome = System.getProperty("java.home");
-//	            if (javaHome != null) {
-//	            	env = new String[]{"JAVA_HOME=" + javaHome};
-//	            }
         	}
         }
         
@@ -595,7 +601,6 @@ public class MOP {
         processRunner = null;
         defaultVersion = DEFAULT_VERSION;
         defaultType = DEFAULT_TYPE;
-        workingDirectory = new File(System.getProperty("user.dir"));
         repository.setTransitive(true);
 
         // lets not clear the system properties as they tend to be expected to flow through to the next invocation...
