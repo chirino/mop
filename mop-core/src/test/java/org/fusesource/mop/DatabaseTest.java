@@ -50,7 +50,7 @@ public class DatabaseTest extends TestCase {
         database = new Database();
         database.setDirectroy(directroy);
         database.open(true);
-        Set<String> rc = new TreeSet(database.findByArtifactId("test"));
+        Set<String> rc = new TreeSet<String>(database.findByArtifactId("test"));
 
         artifacts = new LinkedHashSet<String>();
         artifacts.add("org.fusesource.mop:test:jar:1.0");

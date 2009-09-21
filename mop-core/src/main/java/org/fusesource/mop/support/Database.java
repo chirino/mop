@@ -127,7 +127,6 @@ public class Database {
         pageFile.tx().execute(new Transaction.Closure<IOException>() {
             public void execute(Transaction tx) throws IOException {
                 RootEntity root = RootEntity.load(tx);
-                root.installingArtifact = id;
                 root.tx_sequence++;
                 root.store(tx);
             }
@@ -141,7 +140,6 @@ public class Database {
             pageFile.tx().execute(new Transaction.Closure<IOException>() {
                 public void execute(Transaction tx) throws IOException {
                     RootEntity root = RootEntity.load(tx);
-                    root.installingArtifact = null;
                     root.tx_sequence++;
                     root.store(tx);
                 }
@@ -234,7 +232,7 @@ public class Database {
                 RootEntity root = RootEntity.load(tx);
                 BTreeIndex<String, HashSet<String>> artifactIdIndex = root.artifactIdIndex.get(tx);
                 HashSet<String> set = artifactIdIndex.get(tx, artifactId);
-                return set == null ? new HashSet() : new HashSet(set);
+                return set == null ? new HashSet<String>() : new HashSet<String>(set);
             }
         });
     }
@@ -450,7 +448,6 @@ public class Database {
 
         static Marshaller<RootEntity> MARSHALLER = new ObjectMarshaller<RootEntity>();
 
-        protected String installingArtifact;
         protected long tx_sequence;
 
         // This is map of the artifcact -> set of it's transitive dependencies.
@@ -522,6 +519,7 @@ public class Database {
             dataOutput.write(data);
         }
 
+        @SuppressWarnings("unchecked")
         public T readPayload(DataInput dataInput) throws IOException {
             byte data[] = new byte[dataInput.readInt()];
             dataInput.readFully(data);

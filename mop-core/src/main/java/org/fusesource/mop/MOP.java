@@ -17,6 +17,7 @@ import java.lang.reflect.Method;
 import java.net.URLClassLoader;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -244,7 +245,7 @@ public class MOP {
 
         // now the remaining command line args
         try {
-            LinkedList<String> argList = new LinkedList<String>(cli.getArgList());
+            LinkedList<String> argList = new LinkedList<String>(Arrays.asList(cli.getArgs()));
             executeCommand(argList);
         } catch (UsageException e) {
             displayHelp();
