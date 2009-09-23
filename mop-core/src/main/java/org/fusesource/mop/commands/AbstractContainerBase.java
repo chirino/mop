@@ -14,7 +14,6 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.codehaus.plexus.util.FileUtils;
-import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.ProcessRunner;
 import org.fusesource.mop.support.ConfiguresMop;
@@ -38,7 +37,7 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
         File root = getRoot();
         
         LOG.info(String.format("Starting " + getContainerName() + " %s", version));
-        mop.exec(getCommand(root));
+        mop.exec(getCommand(root, params));
         final ShutdownHook hook = new ShutdownHook();
         Runtime.getRuntime().addShutdownHook(hook);
 
@@ -49,11 +48,18 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
             FileUtils.copyFileToDirectory(file, deployFolder);            
         }
 
+        
+        List<String> secondary = getSecondaryCommand(root, params);
+        if (secondary != null) {
+            Thread.sleep(10 * 1000);
+            mop.execAndWait(secondary);
+        }
+
         ProcessRunner runner = mop.getProcessRunner();
         if( runner!=null ) {
             runner.join();
         }
-        LOG.info("ServiceMix has been stopped");
+        LOG.info(getContainerName() + " has been stopped");
         
         //ServiceMix instance has been stopped -- we no longer need the shutdown hook to kill it
         Runtime.getRuntime().removeShutdownHook(hook);
@@ -67,10 +73,11 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
     
     protected abstract String getCommandName();
     
-    protected abstract List<String> addArgs(List<String> command);
+    protected abstract List<String> processArgs(List<String> command, List<String> params);
     
     protected abstract File getDeployFolder(File root);
 
+    protected abstract List<String> getSecondaryCommand(File root, List<String> params);
 
     private boolean isWindows() {
         String os = System.getProperty("os.name");
@@ -86,7 +93,7 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
         return isWindows() ? "zip" : "tar.gz";
     } 
 
-    protected List<String> getCommand(File root) {
+    protected List<String> getCommand(File root, List<String> params) {
         String sep = File.separator;
         List<String> command = new LinkedList<String>();
         String cmd = root.getAbsolutePath() + sep + "bin" + sep + getCommandName();
@@ -95,7 +102,7 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
         }
         command.add(cmd);
 
-        return addArgs(command);
+        return processArgs(command, params);
     }
     
     private File getFile(String id) throws Exception {

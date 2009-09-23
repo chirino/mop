@@ -504,24 +504,35 @@ public class MOP {
     }
 
     public void exec(List<String> commandLine) throws Exception {
+        processRunner = doExec(commandLine);
+    }
+    
+    public void execAndWait(List<String> commandLine) throws Exception {
+        ProcessRunner pRunner = doExec(commandLine);
+        if (pRunner != null) {
+            pRunner.join();
+        }
+    }
+    
+    private ProcessRunner doExec(List<String> commandLine) throws Exception {
         Logger.debug("execing: " + commandLine);
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
 
         String[] env = {};
         if (isWindows()) {
-        	
-        	Map<String, String> envMap = System.getenv();
-        	env = new String[envMap.size()];
-        	int ind = 0;
-        	for (Map.Entry<String, String> entry : envMap.entrySet()) {
-        		env[ind++] = entry.getKey() + "=" + entry.getValue();
-        	}
+            
+            Map<String, String> envMap = System.getenv();
+            env = new String[envMap.size()];
+            int ind = 0;
+            for (Map.Entry<String, String> entry : envMap.entrySet()) {
+                env[ind++] = entry.getKey() + "=" + entry.getValue();
+            }
         }
-        
 
-        processRunner = ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
+        return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
     }
+
 
     public String classpath() throws Exception {
         return repository.classpath(artifactIds);

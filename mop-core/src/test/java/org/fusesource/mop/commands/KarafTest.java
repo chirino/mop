@@ -8,6 +8,8 @@
 package org.fusesource.mop.commands;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import junit.framework.TestCase;
@@ -38,7 +40,7 @@ public class KarafTest extends TestCase {
         File root = new File("root");
         
         smx.configure(KARAF_MOP);
-        List<String> command = smx.getCommand(root);
+        List<String> command = smx.getCommand(root, new ArrayList<String>());
         assertCommand(command);
         assertEquals("Karaf should be started with no extra args", 1, command.size());
     }

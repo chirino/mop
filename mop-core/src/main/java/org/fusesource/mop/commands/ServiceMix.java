@@ -35,7 +35,7 @@ public class ServiceMix extends AbstractContainerBase {
         return "servicemix";
     }
     
-    protected List<String> addArgs(List<String> command) {        
+    protected List<String> processArgs(List<String> command, List<String> params) {
         if (!version.startsWith("3")) {
             command.add("server");
         }
@@ -48,6 +48,12 @@ public class ServiceMix extends AbstractContainerBase {
         } else {
             return new File(root, "deploy");
         }
+    }
+
+    @Override
+    protected List<String> getSecondaryCommand(File root, List<String> params) {    
+        // no-op
+        return null;
     }
 
 }
