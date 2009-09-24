@@ -28,21 +28,43 @@ public class KarafTest extends TestCase {
     };
     
     public void testGetDeployFolder() throws Exception {
-        Karaf smx = new Karaf();
+        Karaf karaf = new Karaf();
         File root = new File("root");
         
-        smx.configure(KARAF_MOP);
-        assertEquals("Karaf uses deploy folder", "deploy", smx.getDeployFolder(root).getName());
+        karaf.configure(KARAF_MOP);
+        assertEquals("Karaf uses deploy folder", "deploy", karaf.getDeployFolder(root).getName());
     }
     
     public void testGetCommand() throws Exception {
-        Karaf smx = new Karaf();
+        Karaf karaf = new Karaf();
         File root = new File("root");
         
-        smx.configure(KARAF_MOP);
-        List<String> command = smx.getCommand(root, new ArrayList<String>());
+        karaf.configure(KARAF_MOP);
+        List<String> command = karaf.getCommand(root, new ArrayList<String>());
         assertCommand(command);
         assertEquals("Karaf should be started with no extra args", 1, command.size());
+    }
+    
+    public void testGetCommandWithExtras() throws Exception {
+        Karaf karaf = new Karaf();
+        File root = new File("root");
+        List<String> params = new ArrayList<String>();
+        params.add("foobar:1.2.3.4");
+        params.add("--commands");
+        params.add("some command ; some other command");
+        
+        karaf.configure(KARAF_MOP);
+        List<String> command = karaf.getCommand(root, params);
+        assertCommand(command);
+        assertEquals("Karaf should be started with no extra args", 1, command.size());
+        assertEquals("params should be stripped of secondary commands", 1, params.size());
+        assertEquals("params should be stripped of secondary commands", "foobar:1.2.3.4", params.get(0));
+        List<String> secondary = karaf.getSecondaryCommand(root, params);
+        assertEquals("unexpected secondary command size", 4, secondary.size());
+        assertTrue("unexpected secondary command", secondary.get(0).endsWith("java"));
+        assertEquals("unexpected secondary command", "-jar", secondary.get(1));
+        assertTrue("unexpected secondary command", secondary.get(2).endsWith("karaf-client.jar"));
+        assertEquals("unexpected secondary command", "some command ; some other command ", secondary.get(3));
     }
 
     private void assertCommand(List<String> command) {
