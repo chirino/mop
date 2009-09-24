@@ -504,6 +504,7 @@ public class MOP {
     }
 
     public void exec(List<String> commandLine) throws Exception {
+        System.out.println("*** execing: " + java.util.Arrays.asList(commandLine));
         processRunner = doExec(commandLine);
     }
     

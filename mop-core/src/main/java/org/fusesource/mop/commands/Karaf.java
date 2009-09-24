@@ -61,12 +61,14 @@ public class Karaf extends AbstractContainerBase {
 
     @Override
    protected List<String> getSecondaryCommand(File root, List<String> params) {
-        List<String> commands = new ArrayList<String>();
-        commands.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
-        commands.add("-jar");
-        commands.add(root + File.separator + "lib" + File.separator + "karaf-client.jar");
-        commands.add(secondaryArgs);
+        List<String> commands = null;
+        if (!"".equals(secondaryArgs)) {
+            commands = new ArrayList<String>();
+            commands.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
+            commands.add("-jar");
+            commands.add(root + File.separator + "lib" + File.separator + "karaf-client.jar");
+            commands.add(secondaryArgs);
+        }
         return commands;
     }
-
 }
