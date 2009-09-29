@@ -155,7 +155,11 @@
                       <pattern>org.apache</pattern>
                       <shadedPattern>org.fusesource.mop.org.apache</shadedPattern>
                       <excludes>
-                        <exclude>org.apache.servicemix</exclude>
+                        <exclude>org.apache.servicemix.*</exclude>
+                        <exclude>org.apache.felix.*</exclude>
+                        <exclude>org.apache.camel.*</exclude>
+                        <exclude>org.apache.activemq.*</exclude>
+                        <exclude>org.apache.cxf.*</exclude>
                       </excludes>                      
                     </relocation>
                     <relocation>

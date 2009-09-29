@@ -8,6 +8,7 @@
 package org.fusesource.mop.commands;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import junit.framework.TestCase;
@@ -57,10 +58,10 @@ public class ServiceMixTest extends TestCase {
         File root = new File("root");
         
         smx.configure(SMX3_MOP);
-        assertCommand(smx.getCommand(root));
+        assertCommand(smx.getCommand(root, new ArrayList<String>()));
         
         smx.configure(SMX4_MOP);
-        List<String> command = smx.getCommand(root);
+        List<String> command = smx.getCommand(root, new ArrayList<String>());
         assertCommand(command);
         assertEquals("ServiceMix 4 should be started in server mode", "server", command.get(1));
     }

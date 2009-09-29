@@ -9,8 +9,6 @@ package org.fusesource.mop.commands;
 
 import java.util.LinkedList;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.Optional;
@@ -20,7 +18,6 @@ import org.fusesource.mop.ProcessRunner;
  * @version $Revision: 1.1 $
  */
 public class CloudMixAgent {
-    private static final transient Log LOG = LogFactory.getLog(CloudMixAgent.class);
 
     @Optional
     private String port = "0";

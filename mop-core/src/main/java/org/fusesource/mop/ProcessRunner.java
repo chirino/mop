@@ -31,7 +31,6 @@ public class ProcessRunner {
     private Thread thread;
     private String id;
     private Process process;
-    private String[] cmd;
     private AtomicBoolean running = new AtomicBoolean(true);
     private int exitValue = -1;
     private StreamPipe errorHandler;
@@ -50,7 +49,7 @@ public class ProcessRunner {
         if (process == null) {
             throw new Exception("Process launched failed (returned null).");
         }
-        return new ProcessRunner(id, process, cmd, sout, serr);
+        return new ProcessRunner(id, process, sout, serr);
     }
 
     public static String newId(String prefix) {
@@ -58,10 +57,9 @@ public class ProcessRunner {
     }
 
 
-    public ProcessRunner(String id, Process theProcess, String[] cmd, OutputStream sout, OutputStream serr) {
+    public ProcessRunner(String id, Process theProcess, OutputStream sout, OutputStream serr) {
         this.id = id;
         this.process = theProcess;
-        this.cmd = cmd;
 
         errorHandler = new StreamPipe(process.getErrorStream(), "Process Error Handler for: " + id, serr);
         outputHandler = new StreamPipe(process.getInputStream(), "Process Output Handler for: " + id, sout);

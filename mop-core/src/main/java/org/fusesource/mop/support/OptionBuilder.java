@@ -14,7 +14,6 @@ public class OptionBuilder {
     private String name;
     private String description;
     private boolean required;
-    private boolean optional;
     private int args =-1;
     private String arg;
     private Object type;
@@ -59,11 +58,6 @@ public class OptionBuilder {
 
     public OptionBuilder id(String name) {
         this.id = name;
-        return this;
-    }
-
-    public OptionBuilder optional(boolean optional) {
-        this.optional = optional;
         return this;
     }
 

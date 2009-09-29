@@ -24,7 +24,6 @@ import org.fusesource.mop.support.ArtifactId;
  */
 public class Fork {
     private static final transient Log LOG = LogFactory.getLog(Fork.class);
-
     /**
      * Forks a new child JVM and executes the remaining arguments as a child MOP process
      */
@@ -70,6 +69,8 @@ public class Fork {
         }
         newArgs.add(javaExe);
         mop.addSystemProperties(newArgs);
+        newArgs.add("-D" + MOP.MOP_WORKING_DIR_SYSPROPERTY 
+            + "=" + mop.getWorkingDirectory().getAbsolutePath());
         newArgs.add("-cp");
         newArgs.add(classpath);
         newArgs.add(MOP.class.getName());

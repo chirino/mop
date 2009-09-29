@@ -22,12 +22,12 @@
     <usage><![CDATA[ [<warArtifact(s)>] [<jettyArgument(s)>]]></usage>
   </command>
 
-  <command name="karaf" alias="jar org.apache.felix:karaf-main ${artifacts}">
+  <!--command name="karaf" alias="jar org.apache.felix:karaf-main ${artifacts}">
     <description>
       Starts an embedded Karaf container and deploys the given artifact(s) inside it
     </description>
     <usage><![CDATA[ [<bundleArtfacts(s)>] [<karafArg(s)>]]></usage>
-  </command>
+  </command-->
 
   <command name="broker" alias="war org.apache.activemq:activemq-web-console:${version}">
     <description>

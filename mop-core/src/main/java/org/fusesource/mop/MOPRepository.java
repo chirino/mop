@@ -31,7 +31,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.InvalidRepositoryException;
-import org.apache.maven.artifact.metadata.ArtifactMetadata;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
@@ -338,7 +337,7 @@ public class MOPRepository {
 
                     // Makes groupId includeOptional.. we look it up in the database.
                     if (id.getGroupId() == null) {
-                        Map<String, Set<String>> rc = database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
+                        Map<String, Set<String>> rc = Database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
                         if (rc.isEmpty()) {
                             throw new Exception("Please qualify a group id: No local artifacts match: "+id.getArtifactId());
                         }
@@ -536,7 +535,8 @@ public class MOPRepository {
         if (asRemote) {
             layout = new DefaultRepositoryLayout() {
                 @Override
-                public String pathOfRemoteRepositoryMetadata(ArtifactMetadata metadata) {
+                @SuppressWarnings("deprecation")
+                public String pathOfRemoteRepositoryMetadata(org.apache.maven.artifact.metadata.ArtifactMetadata metadata) {
                     return super.pathOfLocalRepositoryMetadata(metadata, localRepository[0]);
                 }
             };

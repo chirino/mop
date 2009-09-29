@@ -17,6 +17,7 @@ import java.lang.reflect.Method;
 import java.net.URLClassLoader;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -43,6 +44,7 @@ import org.codehaus.plexus.PlexusContainer;
 import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
+import org.fusesource.mop.commands.Karaf;
 import org.fusesource.mop.commands.ServiceMix;
 import org.fusesource.mop.commands.Shell;
 import org.fusesource.mop.support.ArtifactId;
@@ -62,6 +64,7 @@ public class MOP {
 
     public static final String DEFAULT_VERSION = "RELEASE";
     public static final String DEFAULT_TYPE = "jar";
+    public static final String MOP_WORKING_DIR_SYSPROPERTY = "org.fusesource.mop.workingdir";
 
     private  MOPRepository repository = new MOPRepository();
     private Options options;
@@ -166,6 +169,15 @@ public class MOP {
         }
 
         MOP mop = new MOP();
+        String workDir = System.getProperty(MOP_WORKING_DIR_SYSPROPERTY);
+        if (workDir != null) {
+            mop.setWorkingDirectory(new File(workDir));
+        } else {
+            String userDir = System.getProperty("user.dir");
+            if (userDir != null) {
+                mop.setWorkingDirectory(new File(userDir));
+            }
+        }
         int exitValue = mop.executeAndWait(args);
         System.exit(exitValue);
     }
@@ -233,7 +245,7 @@ public class MOP {
 
         // now the remaining command line args
         try {
-            LinkedList<String> argList = new LinkedList<String>(cli.getArgList());
+            LinkedList<String> argList = new LinkedList<String>(Arrays.asList(cli.getArgs()));
             executeCommand(argList);
         } catch (UsageException e) {
             displayHelp();
@@ -487,33 +499,41 @@ public class MOP {
     public void addSystemProperties(List<String> commandLine) {
         Set<Map.Entry<String, String>> entries = systemProperties.entrySet();
         for (Map.Entry<String, String> entry : entries) {
-            commandLine.add("-D" + entry.getKey() +"=" + entry.getValue());
+            commandLine.add("-D" + entry.getKey() + "=" + entry.getValue());
         }
     }
 
     public void exec(List<String> commandLine) throws Exception {
+        System.out.println("*** execing: " + java.util.Arrays.asList(commandLine));
+        processRunner = doExec(commandLine);
+    }
+    
+    public void execAndWait(List<String> commandLine) throws Exception {
+        ProcessRunner pRunner = doExec(commandLine);
+        if (pRunner != null) {
+            pRunner.join();
+        }
+    }
+    
+    private ProcessRunner doExec(List<String> commandLine) throws Exception {
         Logger.debug("execing: " + commandLine);
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
 
         String[] env = {};
         if (isWindows()) {
-        	
-        	Map<String, String> envMap = System.getenv();
-        	env = new String[envMap.size()];
-        	int ind = 0;
-        	for (Map.Entry<String, String> entry : envMap.entrySet()) {
-        		env[ind++] = entry.getKey() + "=" + entry.getValue();
-//	            String javaHome = System.getProperty("java.home");
-//	            if (javaHome != null) {
-//	            	env = new String[]{"JAVA_HOME=" + javaHome};
-//	            }
-        	}
+            
+            Map<String, String> envMap = System.getenv();
+            env = new String[envMap.size()];
+            int ind = 0;
+            for (Map.Entry<String, String> entry : envMap.entrySet()) {
+                env[ind++] = entry.getKey() + "=" + entry.getValue();
+            }
         }
-        
 
-        processRunner = ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
+        return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
     }
+
 
     public String classpath() throws Exception {
         return repository.classpath(artifactIds);
@@ -595,7 +615,6 @@ public class MOP {
         processRunner = null;
         defaultVersion = DEFAULT_VERSION;
         defaultType = DEFAULT_TYPE;
-        workingDirectory = new File(System.getProperty("user.dir"));
         repository.setTransitive(true);
 
         // lets not clear the system properties as they tend to be expected to flow through to the next invocation...
@@ -727,6 +746,7 @@ public class MOP {
         registerCommandMethods(new Fork());
         registerCommandMethods(new Install());
         registerCommandMethods(new ServiceMix());
+        registerCommandMethods(new Karaf());
         registerCommandMethods(new Shell());
     }
 
