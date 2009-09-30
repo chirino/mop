@@ -42,6 +42,7 @@ import org.apache.maven.artifact.Artifact;
 import org.codehaus.plexus.PlexusContainer;
 
 import org.fusesource.mop.commands.CloudMixAgent;
+import org.fusesource.mop.commands.CloudMixController;
 import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
 import org.fusesource.mop.commands.Karaf;
@@ -743,6 +744,7 @@ public class MOP {
 
         // TODO it would be better to auto-discover these from the package!!!
         registerCommandMethods(new CloudMixAgent());
+        registerCommandMethods(new CloudMixController());
         registerCommandMethods(new Fork());
         registerCommandMethods(new Install());
         registerCommandMethods(new ServiceMix());
