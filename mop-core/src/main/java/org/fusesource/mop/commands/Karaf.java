@@ -27,7 +27,11 @@ public class Karaf extends AbstractContainerBase {
     }
     
     protected String getArtefactId() {
-        return "org.apache.felix.karaf:apache-felix-karaf:";
+        StringBuffer sb = new StringBuffer();
+        sb.append("org").append(".").append("apache").append(".").append("felix");
+        sb.append(".").append("karaf").append(":apache-felix-karaf:");
+        return sb.toString();
+        //return "org.apache.felix.karaf:apache-felix-karaf:";
     }
     
     protected String getPrefix() {
