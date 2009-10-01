@@ -7,11 +7,11 @@
  **************************************************************************************/
 package org.fusesource.mop;
 
-import org.apache.maven.artifact.Artifact;
-
 import java.io.File;
 import java.util.List;
 import java.util.Set;
+
+import org.apache.maven.artifact.Artifact;
 
 /**
  * A simple API for injecting a collection of artifacts into a command method as a parameter

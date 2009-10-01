@@ -12,7 +12,10 @@ package org.fusesource.mop.guice;
  * 
  * @version $Revision: 1.1 $
  */
-public class Main {
+public final class Main {
+    private Main() {
+        //not created right now
+    }
     public static void main(String[] args) {
 
     }

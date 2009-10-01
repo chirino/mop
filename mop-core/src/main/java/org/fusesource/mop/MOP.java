@@ -15,32 +15,28 @@ import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLClassLoader;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.LinkedHashMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
-import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.GnuParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
-
 import org.codehaus.plexus.PlexusContainer;
-
 import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.commands.CloudMixController;
 import org.fusesource.mop.commands.Fork;
@@ -53,6 +49,7 @@ import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
 import org.fusesource.mop.support.Logger;
 import org.fusesource.mop.support.MethodCommandDefinition;
+
 import static org.fusesource.mop.support.OptionBuilder.ob;
 
 /**
@@ -505,7 +502,7 @@ public class MOP {
     }
 
     public void exec(List<String> commandLine) throws Exception {
-        System.out.println("*** execing: " + java.util.Arrays.asList(commandLine));
+        System.out.println("*** execing: " + commandLine);
         processRunner = doExec(commandLine);
     }
     
@@ -521,9 +518,8 @@ public class MOP {
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
 
-        String[] env = {};
+        String[] env = null;
         if (isWindows()) {
-            
             Map<String, String> envMap = System.getenv();
             env = new String[envMap.size()];
             int ind = 0;

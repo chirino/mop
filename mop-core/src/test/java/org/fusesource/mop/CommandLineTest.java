@@ -7,14 +7,13 @@
  **************************************************************************************/
 package org.fusesource.mop;
 
-import junit.framework.TestCase;
-import org.apache.maven.artifact.InvalidRepositoryException;
-import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
-import org.fusesource.mop.support.ArtifactId;
-
-import java.util.List;
-import java.util.ArrayList;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import junit.framework.TestCase;
+
+import org.fusesource.mop.support.ArtifactId;
 
 /**
  * Some simple tests of command line argument processing

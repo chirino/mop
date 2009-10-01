@@ -7,21 +7,21 @@
  **************************************************************************************/
 package org.fusesource.mop.commands;
 
+import java.io.File;
+import java.util.List;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.codehaus.plexus.archiver.ArchiverException;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
-import org.fusesource.mop.Optional;
+import org.fusesource.mop.Artifacts;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.Lookup;
-import org.fusesource.mop.Artifacts;
 import org.fusesource.mop.MOP;
+import org.fusesource.mop.Optional;
 import org.fusesource.mop.support.ConfiguresMop;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import java.io.File;
-import java.util.List;
 
 /**
  * @version $Revision: 1.1 $

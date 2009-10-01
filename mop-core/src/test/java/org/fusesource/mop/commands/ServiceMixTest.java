@@ -73,7 +73,7 @@ public class ServiceMixTest extends TestCase {
     }
 
     private boolean isWindows() {
-    	String os = System.getProperty("os.name");
+        String os = System.getProperty("os.name");
         return os != null && os.toLowerCase().contains("windows") ? true : false;
     }
 }

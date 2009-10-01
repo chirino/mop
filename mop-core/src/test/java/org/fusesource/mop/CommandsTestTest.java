@@ -7,14 +7,14 @@
  **************************************************************************************/
 package org.fusesource.mop;
 
-import junit.framework.TestCase;
-
 import java.util.Map;
+
+import junit.framework.TestCase;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.fusesource.mop.support.CommandDefinitions;
 import org.fusesource.mop.support.CommandDefinition;
+import org.fusesource.mop.support.CommandDefinitions;
 
 /**
  * @version $Revision: 1.1 $

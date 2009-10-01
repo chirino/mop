@@ -12,7 +12,6 @@ import java.util.LinkedList;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.Optional;
-import org.fusesource.mop.ProcessRunner;
 
 /**
  * @version $Revision: 1.1 $
@@ -26,7 +25,10 @@ public class CloudMixAgent {
      * Starts a CloudMix agent
      */
     @Command
-    public void cloudmixAgent(MOP mop, @Optional String url, @Optional String profile, @Optional String workDir) throws Exception {
+    public void cloudmixAgent(MOP mop, 
+                              @Optional String url, 
+                              @Optional String profile, 
+                              @Optional String workDir) throws Exception {
         mop.setSystemProperty("agent.controller.uri", url);
         mop.setSystemProperty("agent.profile", profile);
         mop.setSystemProperty("agent.workdir", workDir);
@@ -37,7 +39,8 @@ public class CloudMixAgent {
 
         // TODO how to extract the version of this command???
         System.out.println("Version: " + mop.getDefaultVersion());
-        commands.add("org.fusesource.cloudmix:org.fusesource.cloudmix.agent.mop.web:" + mop.getDefaultVersion());
+        commands.add("org.fusesource.cloudmix:org.fusesource.cloudmix.agent.mop.web:" 
+                     + mop.getDefaultVersion());
 
         // lets default the port
         commands.add("--port");

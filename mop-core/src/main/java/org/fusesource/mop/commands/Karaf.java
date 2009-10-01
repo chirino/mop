@@ -64,7 +64,7 @@ public class Karaf extends AbstractContainerBase {
     }
 
     @Override
-   protected List<String> getSecondaryCommand(File root, List<String> params) {
+    protected List<String> getSecondaryCommand(File root, List<String> params) {
         List<String> commands = null;
         if (!"".equals(secondaryArgs)) {
             commands = new ArrayList<String>();

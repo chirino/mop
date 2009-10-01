@@ -7,6 +7,13 @@
  **************************************************************************************/
 package org.fusesource.mop.support;
 
+import java.io.File;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.LinkedList;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.fusesource.mop.Artifacts;
@@ -14,14 +21,6 @@ import org.fusesource.mop.Description;
 import org.fusesource.mop.Lookup;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.Optional;
-import org.fusesource.mop.ProcessRunner;
-
-import java.io.File;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.LinkedList;
 
 /**
  * @version $Revision: 1.1 $

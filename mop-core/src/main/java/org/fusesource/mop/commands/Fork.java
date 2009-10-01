@@ -14,7 +14,6 @@ import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
 import org.fusesource.mop.support.ArtifactId;
