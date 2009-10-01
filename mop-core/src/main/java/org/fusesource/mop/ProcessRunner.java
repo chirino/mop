@@ -35,21 +35,32 @@ public class ProcessRunner {
     private int exitValue = -1;
     private StreamPipe errorHandler;
     private StreamPipe outputHandler;
+    private StreamPipe inputHandler;
+    
 
-    public static ProcessRunner newInstance(String id, String[] cmd, String[] env, File workingDirectory) throws Exception {
-        return newInstance(id, cmd, env, workingDirectory, System.out, System.err);
+    public static ProcessRunner newInstance(String id, String[] cmd,
+                                            String[] env, File workingDirectory) throws Exception {
+        return newInstance(id, cmd, env, workingDirectory, false);
+    }
+    public static ProcessRunner newInstance(String id, String[] cmd,
+                                            String[] env, File workingDirectory,
+                                            boolean redirectInput) throws Exception {
+        return newInstance(id, cmd, env, workingDirectory, System.out, System.err, redirectInput);
     }
 
     /**
      * Returns a newly created process runner
      */
-    public static ProcessRunner newInstance(String id, String[] cmd, String[] env, File workingDirectory, OutputStream sout, OutputStream serr) throws Exception {
+    private static ProcessRunner newInstance(String id, String[] cmd, String[] env,
+                                            File workingDirectory, 
+                                            OutputStream sout, OutputStream serr,
+                                            boolean redirectInput) throws Exception {
         final Process process = Runtime.getRuntime().exec(cmd, env, workingDirectory);
 
         if (process == null) {
             throw new Exception("Process launched failed (returned null).");
         }
-        return new ProcessRunner(id, process, sout, serr);
+        return new ProcessRunner(id, process, sout, serr, redirectInput);
     }
 
     public static String newId(String prefix) {
@@ -57,12 +68,19 @@ public class ProcessRunner {
     }
 
 
-    public ProcessRunner(String id, Process theProcess, OutputStream sout, OutputStream serr) {
+    public ProcessRunner(String id, Process theProcess,
+                         OutputStream sout, OutputStream serr, 
+                         boolean redirectInput) {
         this.id = id;
         this.process = theProcess;
 
         errorHandler = new StreamPipe(process.getErrorStream(), "Process Error Handler for: " + id, serr);
         outputHandler = new StreamPipe(process.getInputStream(), "Process Output Handler for: " + id, sout);
+        if (redirectInput) {
+            inputHandler = new StreamPipe(System.in, "Process Input Hander for: " + id, 
+                                          process.getOutputStream(),
+                                          true);
+        }
 
         thread = new Thread("Process Watcher for: " + id) {
             @Override
@@ -75,7 +93,9 @@ public class ProcessRunner {
                     //data is sent:
                     errorHandler.join();
                     outputHandler.join();
-
+                    if (inputHandler != null) {
+                        inputHandler.interrupt();
+                    }
                 } catch (InterruptedException e) {
                 }
                 finally {
@@ -147,19 +167,30 @@ public class ProcessRunner {
 
 
     private class StreamPipe implements Runnable {
-        private final BufferedInputStream in;
+        private final InputStream in;
         private OutputStream out;
         private Thread thread;
 
         public StreamPipe(InputStream in, String name, OutputStream out) {
-            this.in = new BufferedInputStream(in);
+            this(in, name, out, true);
+        }
+        public StreamPipe(InputStream in, String name, OutputStream out, boolean buffer) {
+            if (!buffer) {
+                this.in = in;
+            } else {
+                this.in = new BufferedInputStream(in);
+            }
             this.out = out;
             thread = new Thread(this, name);
+            thread.setDaemon(true);
             thread.start();
         }
 
         public void join() throws InterruptedException {
             thread.join();
+        }
+        public void interrupt() {
+            thread.interrupt();
         }
 
         public void run() {
@@ -169,7 +200,9 @@ public class ProcessRunner {
                     if (b < 0) {
                         break;
                     }
+
                     out.write(b);
+                    out.flush();
                 }
             } catch (EOFException expected) {
                 // expected

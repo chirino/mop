@@ -503,17 +503,17 @@ public class MOP {
 
     public void exec(List<String> commandLine) throws Exception {
         System.out.println("*** execing: " + commandLine);
-        processRunner = doExec(commandLine);
+        processRunner = doExec(commandLine, true);
     }
     
     public void execAndWait(List<String> commandLine) throws Exception {
-        ProcessRunner pRunner = doExec(commandLine);
+        ProcessRunner pRunner = doExec(commandLine, false);
         if (pRunner != null) {
             pRunner.join();
         }
     }
     
-    private ProcessRunner doExec(List<String> commandLine) throws Exception {
+    private ProcessRunner doExec(List<String> commandLine, boolean redirectInput) throws Exception {
         Logger.debug("execing: " + commandLine);
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
@@ -528,7 +528,8 @@ public class MOP {
             }
         }
 
-        return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
+        return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env,
+                                         workingDirectory, redirectInput);
     }
 
 

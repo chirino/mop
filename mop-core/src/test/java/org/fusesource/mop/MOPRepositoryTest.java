@@ -18,7 +18,7 @@ public class MOPRepositoryTest extends TestCase {
 
 
         String list = repository
-            .classpath(ArtifactId.parse("org.fusesource.meshkeeper:meshkeeper-api:1.0-SNAPSHOT"));
+            .classpath(ArtifactId.parse("xalan:xalan:2.7.1"));
         System.out.println(list);
     }
 
