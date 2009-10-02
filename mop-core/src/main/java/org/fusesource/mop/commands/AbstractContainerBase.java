@@ -58,6 +58,7 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
         
         String input = getInput();
         if (input != null) {
+            Thread.sleep(5 * 1000);
             runner.sendToInput(input);
         }
         
