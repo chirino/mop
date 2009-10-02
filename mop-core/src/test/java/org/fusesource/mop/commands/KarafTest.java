@@ -58,12 +58,17 @@ public class KarafTest extends TestCase {
         assertEquals("Karaf should be started with no extra args", 1, command.size());
         assertEquals("params should be stripped of secondary commands", 1, params.size());
         assertEquals("params should be stripped of secondary commands", "foobar:1.2.3.4", params.get(0));
+        
+        String input = karaf.getInput();
+        assertEquals("some command ; some other command", input.trim());
+        /*
         List<String> secondary = karaf.getSecondaryCommand(root, params);
         assertEquals("unexpected secondary command size", 4, secondary.size());
         assertTrue("unexpected secondary command", secondary.get(0).endsWith("java"));
         assertEquals("unexpected secondary command", "-jar", secondary.get(1));
         assertTrue("unexpected secondary command", secondary.get(2).endsWith("karaf-client.jar"));
         assertEquals("unexpected secondary command", "some command ; some other command ", secondary.get(3));
+        */
     }
 
     private void assertCommand(List<String> command) {
