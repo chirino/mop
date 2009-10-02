@@ -36,6 +36,8 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
+import org.codehaus.plexus.DefaultPlexusContainer;
+import org.codehaus.plexus.MutablePlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
 import org.fusesource.mop.commands.CloudMixAgent;
 import org.fusesource.mop.commands.CloudMixController;
@@ -234,7 +236,7 @@ public class MOP {
         }
 
         repository.setOnline(!cli.hasOption("o"));
-        Logger.debug("online mode: " + repository.isOnline());
+        LOG.debug("online mode: " + repository.isOnline());
 
         String localRepo = cli.getOptionValue('l');
         if (localRepo != null) {
@@ -514,7 +516,7 @@ public class MOP {
     }
     
     private ProcessRunner doExec(List<String> commandLine, boolean redirectInput) throws Exception {
-        Logger.debug("execing: " + commandLine);
+        LOG.info("MOP Executing " + commandLine);
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
 
@@ -655,10 +657,10 @@ public class MOP {
                         }
                     }
                 } else {
-                    Logger.debug("file " + file + " has no manifest main attributes: " + attributes);
+                    LOG.debug("file " + file + " has no manifest main attributes: " + attributes);
                 }
             } else {
-                Logger.debug("file " + file + " has no manifest");
+                LOG.debug("file " + file + " has no manifest");
             }
         }
         if (className == null) {
@@ -676,7 +678,7 @@ public class MOP {
         URLClassLoader classLoader = MOPRepository.createFileClassLoader(null, dependencies);
         Thread.currentThread().setContextClassLoader(classLoader);
 
-        Logger.debug("Attempting to load class: " + className);
+        LOG.debug("Attempting to load class: " + className);
         Class<?> aClass = classLoader.loadClass(className);
         Method method = aClass.getMethod("main", String[].class);
         String[] commandLineArgs = reminingArgs.toArray(new String[reminingArgs.size()]);
@@ -886,7 +888,7 @@ public class MOP {
         return repository.isTransitive();
     }
 
-    public void setContainer(PlexusContainer container) {
+    public void setContainer(MutablePlexusContainer container) {
         repository.setContainer(container);
     }
 

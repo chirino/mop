@@ -42,6 +42,7 @@ import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.ContainerConfiguration;
 import org.codehaus.plexus.DefaultContainerConfiguration;
 import org.codehaus.plexus.DefaultPlexusContainer;
+import org.codehaus.plexus.MutablePlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.classworlds.ClassWorld;
@@ -64,10 +65,9 @@ public class MOPRepository {
     private boolean includeOptional = System.getProperty("mop.include.includeOptional", "false").equals("true");
     private String localRepoUpdatePolicy = System.getProperty("mop.repo.local.check", ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
 
-    private PlexusContainer container;
+    private MutablePlexusContainer container;
     private File localRepo;
     private LinkedHashMap<String, String> remoteRepositories = getDefaultRepositories();
-
 
     /**
      * @param artifactIds
@@ -75,7 +75,7 @@ public class MOPRepository {
      * @throws Exception
      */
     public List<String> uninstall(final List<ArtifactId> artifactIds) throws Exception {
-        
+
         final ArrayList<String> errorList = new ArrayList<String>();
         database(false, new DBCallback() {
             public void execute(Database database) throws Exception {
@@ -126,7 +126,7 @@ public class MOPRepository {
             type = "installed";
         }
         final String t = type;
-        
+
         final HashSet<ArtifactId> rc = new HashSet<ArtifactId>();
         database(true, new DBCallback() {
             public void execute(Database database) throws Exception {
@@ -175,7 +175,6 @@ public class MOPRepository {
         return createArtifactClassLoader(null, parent, artifactIds);
     }
 
-
     /**
      * Returns a new class loader from the given dependencies
      */
@@ -216,7 +215,7 @@ public class MOPRepository {
         }
 
         for (File dependency : dependencies) {
-            Logger.debug("copying: " + dependency + " to " + targetDir);
+            LOG.debug("copying: " + dependency + " to " + targetDir);
             FileInputStream is = new FileInputStream(dependency);
             try {
                 FileOutputStream os = new FileOutputStream(new File(targetDir, dependency.getName()));
@@ -249,7 +248,7 @@ public class MOPRepository {
     public String classpath(ArtifactId... artifactIds) throws Exception {
         return classpath(null, Arrays.asList(artifactIds));
     }
-    
+
     public String classpath(List<ArtifactId> artifactIds) throws Exception {
         return classpath(null, artifactIds);
     }
@@ -290,6 +289,7 @@ public class MOPRepository {
         }
         return files;
     }
+
     // ----------------------------------------------------------------
     // resolveArtifacts method variations
     // ----------------------------------------------------------------
@@ -319,7 +319,7 @@ public class MOPRepository {
     }
 
     public Set<Artifact> resolveArtifacts(ArtifactFilter filter, final ArtifactId id) throws Exception, InvalidRepositoryException {
-        Logger.debug("Resolving artifact " + id);
+        LOG.info("Resolving artifact " + id);
 
         RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
 
@@ -336,17 +336,17 @@ public class MOPRepository {
                     if (id.getGroupId() == null) {
                         Map<String, Set<String>> rc = Database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
                         if (rc.isEmpty()) {
-                            throw new Exception("Please qualify a group id: No local artifacts match: "+id.getArtifactId());
+                            throw new Exception("Please qualify a group id: No local artifacts match: " + id.getArtifactId());
                         }
                         if (rc.size() > 1) {
                             System.out.println("Local artifacts that match:");
                             for (String s : rc.keySet()) {
                                 System.out.println("   " + s + ":" + id.getArtifactId());
                             }
-                            throw new Exception("Please qualify a group id: Multiple local artifacts match: "+id);
+                            throw new Exception("Please qualify a group id: Multiple local artifacts match: " + id);
                         }
                         id.setGroupId(rc.keySet().iterator().next());
-                        Logger.debug("Resolving artifact " + id);
+                        LOG.debug("Resolving artifact " + id);
                     }
 
                 }
@@ -367,27 +367,21 @@ public class MOPRepository {
         // Setup the filters which will constrain the resulting dependencies..
         List<ArtifactFilter> constraints = new ArrayList<ArtifactFilter>();
         constraints.add(new ScopeArtifactFilter(scope));
-        if( !includeOptional) {
+        if (!includeOptional) {
             constraints.add(new ArtifactFilter() {
                 public boolean include(Artifact artifact) {
                     return !artifact.isOptional();
                 }
             });
         }
-        if( filter!=null ) {
+        if (filter != null) {
             constraints.add(filter);
         }
 
         ArtifactFilter filters = new AndArtifactFilter(constraints);
 
-        ArtifactResolutionRequest request = new ArtifactResolutionRequest()
-                .setArtifact(artifact)
-                .setResolveRoot(true)
-                .setResolveTransitively(isTransitive())
-                .setLocalRepository(localRepository)
-                .setRemoteRepositories(remoteRepositories)
-                .setOffline(!online)
-                .setCollectionFilter(filters);
+        ArtifactResolutionRequest request = new ArtifactResolutionRequest().setArtifact(artifact).setResolveRoot(true).setResolveTransitively(isTransitive()).setLocalRepository(localRepository)
+                .setRemoteRepositories(remoteRepositories).setOffline(!online).setCollectionFilter(filters);
 
         ArtifactResolutionResult result = repositorySystem.resolve(request);
 
@@ -410,10 +404,10 @@ public class MOPRepository {
             });
         }
 
-        if( Logger.isDebug() ) {
-            Logger.debug("  Resolved: "+id);
+        if (Logger.isDebug()) {
+            LOG.info("  Resolved: " + id);
             for (Artifact a : rc) {
-                Logger.debug("    depends on: " + a.getId() + ", scope: " + a.getScope() +", optional: "+a.isOptional()+ ", file: " + a.getFile());
+                LOG.debug("    depends on: " + a.getId() + ", scope: " + a.getScope() + ", optional: " + a.isOptional() + ", file: " + a.getFile());
             }
         }
 
@@ -434,7 +428,7 @@ public class MOPRepository {
         database.setDirectroy(new File(getLocalRepo(), ".index"));
         database.open(readOnly);
         try {
-            if( readOnly ) {
+            if (readOnly) {
                 synchronized (lock) {
                     c.execute(database);
                 }
@@ -449,7 +443,7 @@ public class MOPRepository {
     static private List<ArtifactId> toArtifactIds(String... artifactIds) {
         return toArtifactIds(Arrays.asList(artifactIds));
     }
-    
+
     static private List<ArtifactId> toArtifactIds(List<String> artifactIds) {
         ArrayList<ArtifactId> rc = new ArrayList<ArtifactId>(artifactIds.size());
         for (String id : artifactIds) {
@@ -457,7 +451,6 @@ public class MOPRepository {
         }
         return rc;
     }
-
 
     private static void copy(InputStream is, OutputStream os) throws IOException {
         byte buffer[] = new byte[1024 * 4];
@@ -512,7 +505,7 @@ public class MOPRepository {
         DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
 
-        if( online ) {
+        if (online) {
             repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_DAILY);
         } else {
             repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
@@ -541,7 +534,7 @@ public class MOPRepository {
 
         //Always check local repo for updates:
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-        if( online ) {
+        if (online) {
             repositoryPolicy.setUpdatePolicy(localRepoUpdatePolicy);
         } else {
             repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
@@ -551,7 +544,6 @@ public class MOPRepository {
         ArtifactRepository repository = localRepository[0];
         return repository;
     }
-
 
     private static LinkedHashMap<String, String> getDefaultRepositories() {
         LinkedHashMap<String, String> rc = new LinkedHashMap<String, String>();
@@ -570,7 +562,6 @@ public class MOPRepository {
         return rc;
     }
 
-
     // ----------------------------------------------------------------
     // Properties
     // ----------------------------------------------------------------
@@ -578,9 +569,24 @@ public class MOPRepository {
     public PlexusContainer getContainer() {
         if (container == null) {
             try {
+                //Map commons logging to plexus log level:
+                int plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_DISABLED;
+                if (LOG.isDebugEnabled() || LOG.isTraceEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_DEBUG;
+                } else if (LOG.isInfoEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_INFO;
+                } else if (LOG.isWarnEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_WARN;
+                } else if (LOG.isErrorEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_ERROR;
+                } else if (LOG.isFatalEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_FATAL;
+                }
+                
                 ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader());
                 ContainerConfiguration configuration = new DefaultContainerConfiguration().setClassWorld(classWorld);
                 container = new DefaultPlexusContainer(configuration);
+                container.getLoggerManager().setThreshold(plexusLogLevel);
             } catch (PlexusContainerException e) {
                 throw new RuntimeException(e);
             }
@@ -588,7 +594,7 @@ public class MOPRepository {
         return container;
     }
 
-    public void setContainer(PlexusContainer container) {
+    public void setContainer(MutablePlexusContainer container) {
         this.container = container;
     }
 
@@ -603,7 +609,7 @@ public class MOPRepository {
                     warnDir = localRepo.getCanonicalPath();
                 } catch (Exception e) {
                 }
-                LOG.warn("No "+MOP_BASE+" system property defined so setting local repo to: " + warnDir);
+                LOG.warn("No " + MOP_BASE + " system property defined so setting local repo to: " + warnDir);
             }
         }
         return localRepo;
@@ -618,7 +624,7 @@ public class MOPRepository {
     }
 
     public void setAlwaysCheckUserLocalRepo(boolean alwaysCheckUserLocalRepo) {
-        if( alwaysCheckUserLocalRepo ) {
+        if (alwaysCheckUserLocalRepo) {
             localRepoUpdatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS;
         } else {
             localRepoUpdatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER;

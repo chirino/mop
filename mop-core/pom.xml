@@ -170,6 +170,10 @@
                         <exclude>org.apache.camel.*</exclude>
                         <exclude>org.apache.activemq.*</exclude>
                         <exclude>org.apache.cxf.*</exclude>
+                        <exclude>org.apache.cxf.*</exclude>
+                        <!--Let's not relocate loggers so apps can control them -->
+                        <exclude>org.apache.commons.logging.*</exclude>
+                        <exclude>org.apache.log4j.*</exclude>
                       </excludes>                      
                     </relocation>
                     <relocation>
