@@ -48,14 +48,19 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
             FileUtils.copyFileToDirectory(file, deployFolder);            
         }
 
-        
         List<String> secondary = getSecondaryCommand(root, params);
         if (secondary != null) {
             Thread.sleep(10 * 1000);
             mop.execAndWait(secondary);
         }
-
+                
         ProcessRunner runner = mop.getProcessRunner();
+        
+        String input = getInput();
+        if (input != null) {
+            runner.sendToInput(input);
+        }
+        
         if( runner!=null ) {
             runner.join();
         }
@@ -78,6 +83,10 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
     protected abstract File getDeployFolder(File root);
 
     protected abstract List<String> getSecondaryCommand(File root, List<String> params);
+    
+    protected String getInput() {
+        return null;
+    }
 
     private boolean isWindows() {
         String os = System.getProperty("os.name");

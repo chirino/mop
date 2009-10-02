@@ -41,7 +41,7 @@ public class Karaf extends AbstractContainerBase {
     protected String getCommandName() {
         return "karaf";
     }
-    
+
     
     protected List<String> processArgs(List<String> command, List<String> params) {
         for (int i = 0 ; i < params.size() ; i++) {
@@ -62,9 +62,14 @@ public class Karaf extends AbstractContainerBase {
     protected File getDeployFolder(File root) {
         return new File(root, "deploy");
     }
+    protected String getInput() {
+        return "".equals(secondaryArgs) ? null : secondaryArgs + "\n";
+    }
 
     @Override
     protected List<String> getSecondaryCommand(File root, List<String> params) {
+        return null;
+        /*
         List<String> commands = null;
         if (!"".equals(secondaryArgs)) {
             commands = new ArrayList<String>();
@@ -74,5 +79,6 @@ public class Karaf extends AbstractContainerBase {
             commands.add(secondaryArgs);
         }
         return commands;
+        */
     }
 }
