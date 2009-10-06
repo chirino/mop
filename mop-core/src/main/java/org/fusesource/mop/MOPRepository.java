@@ -23,8 +23,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.Map.Entry;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -57,6 +59,8 @@ public class MOPRepository {
 
     private static final transient Log LOG = LogFactory.getLog(MOPRepository.class);
     public static final String MOP_BASE = "mop.base";
+    public static final String MOP_REPO_CONFIG = "mop.repo.conf";
+
     private static final Object lock = new Object();
 
     private String scope = System.getProperty("mop.scope", "runtime");
@@ -548,7 +552,6 @@ public class MOPRepository {
     private static LinkedHashMap<String, String> getDefaultRepositories() {
         LinkedHashMap<String, String> rc = new LinkedHashMap<String, String>();
 
-        // We could propably load a property file from the base dir to get this list.
         rc.put(RepositorySystem.DEFAULT_REMOTE_REPO_ID, RepositorySystem.DEFAULT_REMOTE_REPO_URL);
         rc.put("fusesource.m2", "http://repo.fusesource.com/maven2");
         rc.put("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot");
@@ -559,6 +562,41 @@ public class MOPRepository {
         rc.put("mop.snapshot", "http://mop.fusesource.org/repo/snapshot");
         rc.put("mop.release", "http://mop.fusesource.org/repo/release");
 
+        Properties p = getRepositoryConfig();
+        for (Entry<Object, Object> entry : p.entrySet()) {
+            rc.put(entry.getKey().toString(), entry.getValue().toString());
+        }
+        return rc;
+    }
+
+    private static Properties getRepositoryConfig() {
+        Properties rc = new Properties();
+
+        //Check for those configured at mop base:
+        if (System.getProperty(MOP_BASE) != null) {
+
+            File f = new File(System.getProperty(MOP_BASE), "repos.conf");
+            try {
+                if (f.exists()) {
+                    rc.load(new FileInputStream(f));
+                }
+            } catch (Exception e) {
+                LOG.warn("Error reading repo config from " + f, e);
+            }
+        }
+
+        //Check for user specified config:
+        if (System.getProperty(MOP_REPO_CONFIG) != null) {
+
+            File f = new File(System.getProperty(MOP_REPO_CONFIG));
+            try {
+                if (f.exists()) {
+                    rc.load(new FileInputStream(f));
+                }
+            } catch (Exception e) {
+                LOG.warn("Error reading repo config from " + f, e);
+            }
+        }
         return rc;
     }
 
@@ -582,7 +620,7 @@ public class MOPRepository {
                 } else if (LOG.isFatalEnabled()) {
                     plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_FATAL;
                 }
-                
+
                 ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader());
                 ContainerConfiguration configuration = new DefaultContainerConfiguration().setClassWorld(classWorld);
                 container = new DefaultPlexusContainer(configuration);
