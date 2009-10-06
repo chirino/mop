@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map.Entry;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -23,8 +24,10 @@ import org.fusesource.mop.support.ArtifactId;
  */
 public class Fork {
     private static final transient Log LOG = LogFactory.getLog(Fork.class);
+
     /**
-     * Forks a new child JVM and executes the remaining arguments as a child MOP process
+     * Forks a new child JVM and executes the remaining arguments as a child MOP
+     * process
      */
     @Command
     public void fork(MOP mop, LinkedList<String> args) throws Exception {
@@ -40,11 +43,9 @@ public class Fork {
         LOG.debug("mop package version: " + version);
 
         // TODO LATEST/RELEASE don't tend to work?
-/*
-        if (version == null) {
-            version = "RELEASE";
-        }
-*/
+        /*
+         * if (version == null) { version = "RELEASE"; }
+         */
         String classpath;
         if (version != null) {
             ArtifactId mopArtifactId = mop.parseArtifactId("org.fusesource.mop:mop-core:" + version);
@@ -58,18 +59,24 @@ public class Fork {
             }
         }
         if (isWindows() && classpath.contains(" ")) {
-        	classpath = "\"" + classpath + "\"";
+            classpath = "\"" + classpath + "\"";
         }
-        
+
         List<String> newArgs = new ArrayList<String>();
         String javaExe = "java";
         if (isWindows()) {
-        	javaExe += ".exe";
+            javaExe += ".exe";
         }
         newArgs.add(javaExe);
+
+        //Propagate repository props to the forked process:
+        for (Entry<String, String> entry : mop.getRepository().getRepositorySystemProps().entrySet()) {
+            mop.setSystemProperty(entry.getKey(), entry.getValue());
+        }
+
         mop.addSystemProperties(newArgs);
-        newArgs.add("-D" + MOP.MOP_WORKING_DIR_SYSPROPERTY 
-            + "=" + mop.getWorkingDirectory().getAbsolutePath());
+        newArgs.add("-D" + MOP.MOP_WORKING_DIR_SYSPROPERTY + "=" + mop.getWorkingDirectory().getAbsolutePath());
+
         newArgs.add("-cp");
         newArgs.add(classpath);
         newArgs.add(MOP.class.getName());
@@ -80,8 +87,8 @@ public class Fork {
     }
 
     private boolean isWindows() {
-    	String os = System.getProperty("os.name");
+        String os = System.getProperty("os.name");
         return os != null && os.toLowerCase().contains("windows") ? true : false;
     }
-    
+
 }

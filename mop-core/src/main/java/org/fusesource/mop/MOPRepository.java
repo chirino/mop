@@ -18,6 +18,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -59,15 +60,22 @@ public class MOPRepository {
 
     private static final transient Log LOG = LogFactory.getLog(MOPRepository.class);
     public static final String MOP_BASE = "mop.base";
-    public static final String MOP_REPO_CONFIG = "mop.repo.conf";
+    public static final String MOP_REPO_CONFIG_PROP = "mop.repo.conf";
+    public static final String MOP_SCOPE_PROP = "mop.scope";
+    public static final String MOP_ONLINE_PROP = "mop.online";
+    public static final String MOP_TRANSITIVE_PROP = "mop.include.transitive";
+    public static final String MOP_INCLUDE_OPTIONAL_PROP = "mop.include.includeOptional";
+    public static final String MOP_REPO_LOCAL_CHECK_PROP = "mop.repo.local.check";
+
+    private static final String[] MOP_REPO_PROPS = { MOP_BASE, MOP_REPO_CONFIG_PROP, MOP_SCOPE_PROP, MOP_ONLINE_PROP, MOP_TRANSITIVE_PROP, MOP_INCLUDE_OPTIONAL_PROP, MOP_REPO_LOCAL_CHECK_PROP };
 
     private static final Object lock = new Object();
 
-    private String scope = System.getProperty("mop.scope", "runtime");
-    private boolean online = System.getProperty("mop.online", "true").equals("true");
-    private boolean transitive = System.getProperty("mop.include.transitive", "true").equals("true");
-    private boolean includeOptional = System.getProperty("mop.include.includeOptional", "false").equals("true");
-    private String localRepoUpdatePolicy = System.getProperty("mop.repo.local.check", ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
+    private String scope = System.getProperty(MOP_ONLINE_PROP, "runtime");
+    private boolean online = System.getProperty(MOP_ONLINE_PROP, "true").equals("true");
+    private boolean transitive = System.getProperty(MOP_TRANSITIVE_PROP, "true").equals("true");
+    private boolean includeOptional = System.getProperty(MOP_INCLUDE_OPTIONAL_PROP, "false").equals("true");
+    private String localRepoUpdatePolicy = System.getProperty(MOP_REPO_LOCAL_CHECK_PROP, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
 
     private MutablePlexusContainer container;
     private File localRepo;
@@ -113,6 +121,23 @@ public class MOPRepository {
             }
         });
         return errorList;
+    }
+
+    /**
+     * Gets the system properties used to configure this MopRepository
+     * 
+     * @return A Map of system properties used to configure this repository
+     */
+    public Map<String, String> getRepositorySystemProps() {
+        HashMap<String, String> rc = new HashMap<String, String>(MOP_REPO_PROPS.length);
+        for (String prop : MOP_REPO_PROPS) {
+            String value = System.getProperty(prop);
+            if (value != null) {
+                rc.put(prop, value);
+            }
+        }
+
+        return rc;
     }
 
     /**
@@ -586,9 +611,9 @@ public class MOPRepository {
         }
 
         //Check for user specified config:
-        if (System.getProperty(MOP_REPO_CONFIG) != null) {
+        if (System.getProperty(MOP_REPO_CONFIG_PROP) != null) {
 
-            File f = new File(System.getProperty(MOP_REPO_CONFIG));
+            File f = new File(System.getProperty(MOP_REPO_CONFIG_PROP));
             try {
                 if (f.exists()) {
                     rc.load(new FileInputStream(f));
