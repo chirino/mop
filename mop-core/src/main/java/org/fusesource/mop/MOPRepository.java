@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.TreeSet;
 import java.util.Map.Entry;
 
@@ -35,6 +36,7 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
+import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
@@ -541,7 +543,36 @@ public class MOPRepository {
         }
 
         for (Map.Entry<String, String> entry : remoteRepositories.entrySet()) {
-            rc.add(repositorySystem.createArtifactRepository(entry.getKey(), entry.getValue(), layout, repositoryPolicy, repositoryPolicy));
+            String repoUrl = entry.getValue();
+
+            //Let's strip the username password out so that it doesn't get displayed:
+            Authentication auth = null;
+            try {
+                URL url = new URL(entry.getValue().toString());
+                String userInfo = url.getUserInfo();
+                if (userInfo != null) {
+                    StringTokenizer tok = new StringTokenizer(userInfo, ":");
+                    if (tok.countTokens() == 1) {
+                        auth = new Authentication(userInfo, null);
+                    } else if (tok.countTokens() == 2) {
+                        auth = new Authentication(tok.nextToken(), tok.nextToken());
+                    } else if (tok.countTokens() > 2) {
+                        auth = new Authentication(tok.nextToken(), userInfo.substring(userInfo.indexOf(":") + 1));
+                    }
+                    
+                    repoUrl = url.getProtocol() + "://" + repoUrl.substring(repoUrl.indexOf("@") + 1);
+                }
+            } catch (MalformedURLException e) {
+                LOG.warn("Invalid Repository url for: " + entry.getKey() + ": " + entry.getValue());
+            }
+
+            ArtifactRepository ar = repositorySystem.createArtifactRepository(entry.getKey(), repoUrl, layout, repositoryPolicy, repositoryPolicy);
+            if (auth != null) {
+                ar.setAuthentication(auth);
+            }
+
+            rc.add(ar);
+
         }
 
         return rc;
@@ -590,6 +621,7 @@ public class MOPRepository {
         Properties p = getRepositoryConfig();
         for (Entry<Object, Object> entry : p.entrySet()) {
             rc.put(entry.getKey().toString(), entry.getValue().toString());
+
         }
         return rc;
     }
