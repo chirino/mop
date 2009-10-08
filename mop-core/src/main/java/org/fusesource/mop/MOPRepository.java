@@ -18,13 +18,17 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.TreeSet;
+import java.util.Map.Entry;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -32,6 +36,7 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
+import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
@@ -57,13 +62,22 @@ public class MOPRepository {
 
     private static final transient Log LOG = LogFactory.getLog(MOPRepository.class);
     public static final String MOP_BASE = "mop.base";
+    public static final String MOP_REPO_CONFIG_PROP = "mop.repo.conf";
+    public static final String MOP_SCOPE_PROP = "mop.scope";
+    public static final String MOP_ONLINE_PROP = "mop.online";
+    public static final String MOP_TRANSITIVE_PROP = "mop.include.transitive";
+    public static final String MOP_INCLUDE_OPTIONAL_PROP = "mop.include.includeOptional";
+    public static final String MOP_REPO_LOCAL_CHECK_PROP = "mop.repo.local.check";
+
+    private static final String[] MOP_REPO_PROPS = { MOP_BASE, MOP_REPO_CONFIG_PROP, MOP_SCOPE_PROP, MOP_ONLINE_PROP, MOP_TRANSITIVE_PROP, MOP_INCLUDE_OPTIONAL_PROP, MOP_REPO_LOCAL_CHECK_PROP };
+
     private static final Object lock = new Object();
 
-    private String scope = System.getProperty("mop.scope", "runtime");
-    private boolean online = System.getProperty("mop.online", "true").equals("true");
-    private boolean transitive = System.getProperty("mop.include.transitive", "true").equals("true");
-    private boolean includeOptional = System.getProperty("mop.include.includeOptional", "false").equals("true");
-    private String localRepoUpdatePolicy = System.getProperty("mop.repo.local.check", ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
+    private String scope = System.getProperty(MOP_ONLINE_PROP, "runtime");
+    private boolean online = System.getProperty(MOP_ONLINE_PROP, "true").equals("true");
+    private boolean transitive = System.getProperty(MOP_TRANSITIVE_PROP, "true").equals("true");
+    private boolean includeOptional = System.getProperty(MOP_INCLUDE_OPTIONAL_PROP, "false").equals("true");
+    private String localRepoUpdatePolicy = System.getProperty(MOP_REPO_LOCAL_CHECK_PROP, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
 
     private MutablePlexusContainer container;
     private File localRepo;
@@ -109,6 +123,23 @@ public class MOPRepository {
             }
         });
         return errorList;
+    }
+
+    /**
+     * Gets the system properties used to configure this MopRepository
+     * 
+     * @return A Map of system properties used to configure this repository
+     */
+    public Map<String, String> getRepositorySystemProps() {
+        HashMap<String, String> rc = new HashMap<String, String>(MOP_REPO_PROPS.length);
+        for (String prop : MOP_REPO_PROPS) {
+            String value = System.getProperty(prop);
+            if (value != null) {
+                rc.put(prop, value);
+            }
+        }
+
+        return rc;
     }
 
     /**
@@ -512,7 +543,36 @@ public class MOPRepository {
         }
 
         for (Map.Entry<String, String> entry : remoteRepositories.entrySet()) {
-            rc.add(repositorySystem.createArtifactRepository(entry.getKey(), entry.getValue(), layout, repositoryPolicy, repositoryPolicy));
+            String repoUrl = entry.getValue();
+
+            //Let's strip the username password out so that it doesn't get displayed:
+            Authentication auth = null;
+            try {
+                URL url = new URL(entry.getValue().toString());
+                String userInfo = url.getUserInfo();
+                if (userInfo != null) {
+                    StringTokenizer tok = new StringTokenizer(userInfo, ":");
+                    if (tok.countTokens() == 1) {
+                        auth = new Authentication(userInfo, null);
+                    } else if (tok.countTokens() == 2) {
+                        auth = new Authentication(tok.nextToken(), tok.nextToken());
+                    } else if (tok.countTokens() > 2) {
+                        auth = new Authentication(tok.nextToken(), userInfo.substring(userInfo.indexOf(":") + 1));
+                    }
+                    
+                    repoUrl = url.getProtocol() + "://" + repoUrl.substring(repoUrl.indexOf("@") + 1);
+                }
+            } catch (MalformedURLException e) {
+                LOG.warn("Invalid Repository url for: " + entry.getKey() + ": " + entry.getValue());
+            }
+
+            ArtifactRepository ar = repositorySystem.createArtifactRepository(entry.getKey(), repoUrl, layout, repositoryPolicy, repositoryPolicy);
+            if (auth != null) {
+                ar.setAuthentication(auth);
+            }
+
+            rc.add(ar);
+
         }
 
         return rc;
@@ -548,7 +608,6 @@ public class MOPRepository {
     private static LinkedHashMap<String, String> getDefaultRepositories() {
         LinkedHashMap<String, String> rc = new LinkedHashMap<String, String>();
 
-        // We could propably load a property file from the base dir to get this list.
         rc.put(RepositorySystem.DEFAULT_REMOTE_REPO_ID, RepositorySystem.DEFAULT_REMOTE_REPO_URL);
         rc.put("fusesource.m2", "http://repo.fusesource.com/maven2");
         rc.put("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot");
@@ -559,6 +618,42 @@ public class MOPRepository {
         rc.put("mop.snapshot", "http://mop.fusesource.org/repo/snapshot");
         rc.put("mop.release", "http://mop.fusesource.org/repo/release");
 
+        Properties p = getRepositoryConfig();
+        for (Entry<Object, Object> entry : p.entrySet()) {
+            rc.put(entry.getKey().toString(), entry.getValue().toString());
+
+        }
+        return rc;
+    }
+
+    private static Properties getRepositoryConfig() {
+        Properties rc = new Properties();
+
+        //Check for those configured at mop base:
+        if (System.getProperty(MOP_BASE) != null) {
+
+            File f = new File(System.getProperty(MOP_BASE), "repos.conf");
+            try {
+                if (f.exists()) {
+                    rc.load(new FileInputStream(f));
+                }
+            } catch (Exception e) {
+                LOG.warn("Error reading repo config from " + f, e);
+            }
+        }
+
+        //Check for user specified config:
+        if (System.getProperty(MOP_REPO_CONFIG_PROP) != null) {
+
+            File f = new File(System.getProperty(MOP_REPO_CONFIG_PROP));
+            try {
+                if (f.exists()) {
+                    rc.load(new FileInputStream(f));
+                }
+            } catch (Exception e) {
+                LOG.warn("Error reading repo config from " + f, e);
+            }
+        }
         return rc;
     }
 
@@ -582,7 +677,7 @@ public class MOPRepository {
                 } else if (LOG.isFatalEnabled()) {
                     plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_FATAL;
                 }
-                
+
                 ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader());
                 ContainerConfiguration configuration = new DefaultContainerConfiguration().setClassWorld(classWorld);
                 container = new DefaultPlexusContainer(configuration);
