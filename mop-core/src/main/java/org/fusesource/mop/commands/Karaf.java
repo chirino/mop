@@ -8,14 +8,11 @@
 package org.fusesource.mop.commands;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.fusesource.mop.Command;
 
 public class Karaf extends AbstractContainerBase {
-        
-    private String secondaryArgs = "";
     
     @Command
     public void karaf(List<String> params) throws Exception {
@@ -41,44 +38,22 @@ public class Karaf extends AbstractContainerBase {
     protected String getCommandName() {
         return "karaf";
     }
-
     
     protected List<String> processArgs(List<String> command, List<String> params) {
-        for (int i = 0 ; i < params.size() ; i++) {
-            String param = params.get(i);
-            if ("-c".equals(param) || "--commands".equals(param)) {
-                int remaining = params.size() - (i + 1);
-                params.remove(i);
-                for (int j = 0 ; j < remaining ; j++) {
-                    secondaryArgs += params.get(i);
-                    secondaryArgs += " ";
-                    params.remove(i);
-                }
-            }
-        }
+        extractSecondaryCommands(params);
         return command;
+    }
+    
+    protected String getInput() {
+        return "".equals(secondaryArgs) ? null : secondaryArgs + "\n";
     }
 
     protected File getDeployFolder(File root) {
         return new File(root, "deploy");
     }
-    protected String getInput() {
-        return "".equals(secondaryArgs) ? null : secondaryArgs + "\n";
-    }
-
+    
     @Override
     protected List<String> getSecondaryCommand(File root, List<String> params) {
         return null;
-        /*
-        List<String> commands = null;
-        if (!"".equals(secondaryArgs)) {
-            commands = new ArrayList<String>();
-            commands.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
-            commands.add("-jar");
-            commands.add(root + File.separator + "lib" + File.separator + "karaf-client.jar");
-            commands.add(secondaryArgs);
-        }
-        return commands;
-        */
     }
 }

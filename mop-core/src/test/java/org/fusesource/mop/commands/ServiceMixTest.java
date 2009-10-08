@@ -65,6 +65,32 @@ public class ServiceMixTest extends TestCase {
         assertCommand(command);
         assertEquals("ServiceMix 4 should be started in server mode", "server", command.get(1));
     }
+    
+    public void xtestGetCommandWithExtras() throws Exception {
+        ServiceMix smx = new ServiceMix();
+        File root = new File("root");
+        List<String> params = new ArrayList<String>();
+        params.add("foobar:1.2.3.4");
+        params.add("--commands");
+        params.add("some command ; some other command");
+        
+        smx.configure(SMX4_MOP);
+        List<String> command = smx.getCommand(root, params);
+        assertCommand(command);
+        assertEquals("SMX should be started with no extra args", 2, command.size());
+        assertEquals("params should be stripped of secondary commands", 1, params.size());
+        assertEquals("params should be stripped of secondary commands", "foobar:1.2.3.4", params.get(0));
+        
+        assertNull(smx.getInput());
+        
+        List<String> secondary = smx.getSecondaryCommand(root, params);
+        assertEquals("unexpected secondary command size", 4, secondary.size());
+        assertTrue("unexpected secondary command", 
+                   secondary.get(0).endsWith(smx.isWindows() ? "java.exe" : "java"));
+        assertEquals("unexpected secondary command", "-jar", secondary.get(1));
+        assertTrue("unexpected secondary command", secondary.get(2).endsWith("karaf-client.jar"));
+        assertEquals("unexpected secondary command", "some command ; some other command ", secondary.get(3));
+    }
 
     private void assertCommand(List<String> command) {
         assertTrue("Requires at least two elements", command.size() >= 1);

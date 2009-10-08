@@ -8,12 +8,13 @@
 package org.fusesource.mop.commands;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.fusesource.mop.Command;
 
 public class ServiceMix extends AbstractContainerBase {
-        
+
     @Command
     public void servicemix(List<String> params) throws Exception {
         installAndLaunch(params);
@@ -43,7 +44,12 @@ public class ServiceMix extends AbstractContainerBase {
         if (!version.startsWith("3")) {
             command.add("server");
         }
+        extractSecondaryCommands(params);
         return command;
+    }
+
+    protected String getInput() {
+        return null;
     }
 
     protected File getDeployFolder(File root) {
@@ -56,8 +62,14 @@ public class ServiceMix extends AbstractContainerBase {
 
     @Override
     protected List<String> getSecondaryCommand(File root, List<String> params) {    
-        // no-op
-        return null;
+        List<String> commands = null;
+        if (!"".equals(secondaryArgs)) {
+            commands = new ArrayList<String>();
+            commands.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + (isWindows() ? "java.exe" : "java"));
+            commands.add("-jar");
+            commands.add(root + File.separator + "lib" + File.separator + "karaf-client.jar");
+            commands.add(secondaryArgs);
+        }
+        return commands;    
     }
-
 }
