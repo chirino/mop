@@ -21,6 +21,7 @@ import org.fusesource.mop.support.ConfiguresMop;
 public abstract class AbstractContainerBase implements ConfiguresMop {
     
     private static final transient Log LOG = LogFactory.getLog(AbstractContainerBase.class);
+    private static final long START_DELAY = 15 * 1000; // 15 secs
     
     protected String version = "RELEASE";
     protected MOP mop;
@@ -51,7 +52,7 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
 
         List<String> secondary = getSecondaryCommand(root, params);
         if (secondary != null) {
-            Thread.sleep(10 * 1000);
+            Thread.sleep(START_DELAY);
             mop.execAndWait(secondary);
         }
                 
@@ -86,9 +87,7 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
 
     protected abstract List<String> getSecondaryCommand(File root, List<String> params);
     
-    protected String getInput() {
-        return null;
-    }
+    protected abstract String getInput();
 
     protected void extractSecondaryCommands(List<String> params) {
         for (int i = 0 ; i < params.size() ; i++) {
