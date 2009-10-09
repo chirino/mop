@@ -605,7 +605,7 @@ public class MOPRepository {
         return repository;
     }
 
-    private static LinkedHashMap<String, String> getDefaultRepositories() {
+    private LinkedHashMap<String, String> getDefaultRepositories() {
         LinkedHashMap<String, String> rc = new LinkedHashMap<String, String>();
 
         rc.put(RepositorySystem.DEFAULT_REMOTE_REPO_ID, RepositorySystem.DEFAULT_REMOTE_REPO_URL);
@@ -626,26 +626,23 @@ public class MOPRepository {
         return rc;
     }
 
-    private static Properties getRepositoryConfig() {
+    private Properties getRepositoryConfig() {
         Properties rc = new Properties();
 
         //Check for those configured at mop base:
-        if (System.getProperty(MOP_BASE) != null) {
-
-            File f = new File(System.getProperty(MOP_BASE), "repos.conf");
-            try {
-                if (f.exists()) {
-                    rc.load(new FileInputStream(f));
-                }
-            } catch (Exception e) {
-                LOG.warn("Error reading repo config from " + f, e);
+        File f = new File(getLocalRepo(), "repos.conf");
+        try {
+            if (f.exists()) {
+                rc.load(new FileInputStream(f));
             }
+        } catch (Exception e) {
+            LOG.warn("Error reading repo config from " + f, e);
         }
-
+     
         //Check for user specified config:
         if (System.getProperty(MOP_REPO_CONFIG_PROP) != null) {
 
-            File f = new File(System.getProperty(MOP_REPO_CONFIG_PROP));
+            f = new File(System.getProperty(MOP_REPO_CONFIG_PROP));
             try {
                 if (f.exists()) {
                     rc.load(new FileInputStream(f));
@@ -709,6 +706,7 @@ public class MOPRepository {
         }
         return localRepo;
     }
+    
 
     public void setLocalRepo(File localRepo) {
         this.localRepo = localRepo;
