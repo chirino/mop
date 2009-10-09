@@ -70,6 +70,6 @@ public class ServiceMix extends AbstractContainerBase {
             commands.add(root + File.separator + "lib" + File.separator + "karaf-client.jar");
             commands.add(secondaryArgs);
         }
-        return commands;    
+        return commands;
     }
 }
