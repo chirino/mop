@@ -630,7 +630,8 @@ public class MOPRepository {
         Properties rc = new Properties();
 
         //Check for those configured at mop base:
-        File f = new File(getLocalRepo(), "repos.conf");
+        File f = new File(getLocalRepo().getParent(), "repos.conf");
+        		
         try {
             if (f.exists()) {
                 rc.load(new FileInputStream(f));
