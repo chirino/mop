@@ -166,11 +166,16 @@ public class CommandDefinitions {
                 }
             } else {
                 name = extractPostfix(key, ".description");
-                CommandDefinition command = commands.get(name);
-                if (command == null) {
-                    missingCommand(name);
-                } else {
-                    command.setDescription(value);
+                if (name == null) {
+                    LOG.warn("Missing command name for key " + key);
+                }
+                else {
+                    CommandDefinition command = commands.get(name);
+                    if (command == null) {
+                        missingCommand(name);
+                    } else {
+                        command.setDescription(value);
+                    }
                 }
             }
         }
