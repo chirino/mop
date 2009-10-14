@@ -7,26 +7,25 @@
  **************************************************************************************/
 package org.fusesource.mop.support;
 
-import org.codehaus.plexus.PlexusContainer;
-import org.fusesource.mop.MOP;
-import org.fusesource.mop.ProcessRunner;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.StringTokenizer;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
-import java.util.List;
-import java.util.ArrayList;
-import java.util.StringTokenizer;
-import java.util.LinkedList;
+import org.fusesource.mop.MOP;
 
 /**
  * @version $Revision: 1.1 $
  */
 public class CommandDefinition {
-    private static final transient Log LOG = LogFactory.getLog(CommandDefinition.class);
-
     public static final String ARTIFACTS_VARIABLE = "${artifacts}";
     public static final String ARGS_VARIABLE = "${args}";
     public static final String VERSION_VARIABLE = "${version}";
+    
+    private static final transient Log LOG = LogFactory.getLog(CommandDefinition.class);
+
 
     private String name;
     private String description;

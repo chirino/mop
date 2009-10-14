@@ -20,12 +20,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.TreeSet;
-import java.util.LinkedHashMap;
+import java.util.Map.Entry;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -33,6 +36,7 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
+import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
@@ -40,14 +44,13 @@ import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.repository.RepositorySystem;
-
 import org.codehaus.plexus.ContainerConfiguration;
 import org.codehaus.plexus.DefaultContainerConfiguration;
 import org.codehaus.plexus.DefaultPlexusContainer;
+import org.codehaus.plexus.MutablePlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.classworlds.ClassWorld;
-
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.Database;
 import org.fusesource.mop.support.Logger;
@@ -59,18 +62,26 @@ public class MOPRepository {
 
     private static final transient Log LOG = LogFactory.getLog(MOPRepository.class);
     public static final String MOP_BASE = "mop.base";
+    public static final String MOP_REPO_CONFIG_PROP = "mop.repo.conf";
+    public static final String MOP_SCOPE_PROP = "mop.scope";
+    public static final String MOP_ONLINE_PROP = "mop.online";
+    public static final String MOP_TRANSITIVE_PROP = "mop.include.transitive";
+    public static final String MOP_INCLUDE_OPTIONAL_PROP = "mop.include.includeOptional";
+    public static final String MOP_REPO_LOCAL_CHECK_PROP = "mop.repo.local.check";
+
+    private static final String[] MOP_REPO_PROPS = { MOP_BASE, MOP_REPO_CONFIG_PROP, MOP_SCOPE_PROP, MOP_ONLINE_PROP, MOP_TRANSITIVE_PROP, MOP_INCLUDE_OPTIONAL_PROP, MOP_REPO_LOCAL_CHECK_PROP };
+
     private static final Object lock = new Object();
 
-    private String scope = System.getProperty("mop.scope", "runtime");
-    private boolean online = System.getProperty("mop.online", "true").equals("true");
-    private boolean transitive = System.getProperty("mop.include.transitive", "true").equals("true");
-    private boolean includeOptional = System.getProperty("mop.include.includeOptional", "false").equals("true");
-    private String localRepoUpdatePolicy = System.getProperty("mop.repo.local.check", ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
+    private String scope = System.getProperty(MOP_ONLINE_PROP, "runtime");
+    private boolean online = System.getProperty(MOP_ONLINE_PROP, "true").equals("true");
+    private boolean transitive = System.getProperty(MOP_TRANSITIVE_PROP, "true").equals("true");
+    private boolean includeOptional = System.getProperty(MOP_INCLUDE_OPTIONAL_PROP, "false").equals("true");
+    private String localRepoUpdatePolicy = System.getProperty(MOP_REPO_LOCAL_CHECK_PROP, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
 
-    private PlexusContainer container;
+    private MutablePlexusContainer container;
     private File localRepo;
     private LinkedHashMap<String, String> remoteRepositories = getDefaultRepositories();
-
 
     /**
      * @param artifactIds
@@ -78,7 +89,7 @@ public class MOPRepository {
      * @throws Exception
      */
     public List<String> uninstall(final List<ArtifactId> artifactIds) throws Exception {
-        
+
         final ArrayList<String> errorList = new ArrayList<String>();
         database(false, new DBCallback() {
             public void execute(Database database) throws Exception {
@@ -115,6 +126,23 @@ public class MOPRepository {
     }
 
     /**
+     * Gets the system properties used to configure this MopRepository
+     * 
+     * @return A Map of system properties used to configure this repository
+     */
+    public Map<String, String> getRepositorySystemProps() {
+        HashMap<String, String> rc = new HashMap<String, String>(MOP_REPO_PROPS.length);
+        for (String prop : MOP_REPO_PROPS) {
+            String value = System.getProperty(prop);
+            if (value != null) {
+                rc.put(prop, value);
+            }
+        }
+
+        return rc;
+    }
+
+    /**
      * Provides a listing of all mop installed artifacts. The type arguement can
      * be either "all" or "installed".
      * 
@@ -129,7 +157,7 @@ public class MOPRepository {
             type = "installed";
         }
         final String t = type;
-        
+
         final HashSet<ArtifactId> rc = new HashSet<ArtifactId>();
         database(true, new DBCallback() {
             public void execute(Database database) throws Exception {
@@ -178,7 +206,6 @@ public class MOPRepository {
         return createArtifactClassLoader(null, parent, artifactIds);
     }
 
-
     /**
      * Returns a new class loader from the given dependencies
      */
@@ -219,7 +246,7 @@ public class MOPRepository {
         }
 
         for (File dependency : dependencies) {
-            Logger.debug("copying: " + dependency + " to " + targetDir);
+            LOG.debug("copying: " + dependency + " to " + targetDir);
             FileInputStream is = new FileInputStream(dependency);
             try {
                 FileOutputStream os = new FileOutputStream(new File(targetDir, dependency.getName()));
@@ -252,7 +279,7 @@ public class MOPRepository {
     public String classpath(ArtifactId... artifactIds) throws Exception {
         return classpath(null, Arrays.asList(artifactIds));
     }
-    
+
     public String classpath(List<ArtifactId> artifactIds) throws Exception {
         return classpath(null, artifactIds);
     }
@@ -293,6 +320,7 @@ public class MOPRepository {
         }
         return files;
     }
+
     // ----------------------------------------------------------------
     // resolveArtifacts method variations
     // ----------------------------------------------------------------
@@ -322,7 +350,7 @@ public class MOPRepository {
     }
 
     public Set<Artifact> resolveArtifacts(ArtifactFilter filter, final ArtifactId id) throws Exception, InvalidRepositoryException {
-        Logger.debug("Resolving artifact " + id);
+        LOG.info("Resolving artifact " + id);
 
         RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
 
@@ -339,17 +367,17 @@ public class MOPRepository {
                     if (id.getGroupId() == null) {
                         Map<String, Set<String>> rc = Database.groupByGroupId(database.findByArtifactId(id.getArtifactId()));
                         if (rc.isEmpty()) {
-                            throw new Exception("Please qualify a group id: No local artifacts match: "+id.getArtifactId());
+                            throw new Exception("Please qualify a group id: No local artifacts match: " + id.getArtifactId());
                         }
                         if (rc.size() > 1) {
                             System.out.println("Local artifacts that match:");
                             for (String s : rc.keySet()) {
                                 System.out.println("   " + s + ":" + id.getArtifactId());
                             }
-                            throw new Exception("Please qualify a group id: Multiple local artifacts match: "+id);
+                            throw new Exception("Please qualify a group id: Multiple local artifacts match: " + id);
                         }
                         id.setGroupId(rc.keySet().iterator().next());
-                        Logger.debug("Resolving artifact " + id);
+                        LOG.debug("Resolving artifact " + id);
                     }
 
                 }
@@ -370,27 +398,21 @@ public class MOPRepository {
         // Setup the filters which will constrain the resulting dependencies..
         List<ArtifactFilter> constraints = new ArrayList<ArtifactFilter>();
         constraints.add(new ScopeArtifactFilter(scope));
-        if( !includeOptional) {
+        if (!includeOptional) {
             constraints.add(new ArtifactFilter() {
                 public boolean include(Artifact artifact) {
                     return !artifact.isOptional();
                 }
             });
         }
-        if( filter!=null ) {
+        if (filter != null) {
             constraints.add(filter);
         }
 
         ArtifactFilter filters = new AndArtifactFilter(constraints);
 
-        ArtifactResolutionRequest request = new ArtifactResolutionRequest()
-                .setArtifact(artifact)
-                .setResolveRoot(true)
-                .setResolveTransitively(isTransitive())
-                .setLocalRepository(localRepository)
-                .setRemoteRepositories(remoteRepositories)
-                .setOffline(!online)
-                .setCollectionFilter(filters);
+        ArtifactResolutionRequest request = new ArtifactResolutionRequest().setArtifact(artifact).setResolveRoot(true).setResolveTransitively(isTransitive()).setLocalRepository(localRepository)
+                .setRemoteRepositories(remoteRepositories).setOffline(!online).setCollectionFilter(filters);
 
         ArtifactResolutionResult result = repositorySystem.resolve(request);
 
@@ -413,10 +435,10 @@ public class MOPRepository {
             });
         }
 
-        if( Logger.isDebug() ) {
-            Logger.debug("  Resolved: "+id);
+        if (Logger.isDebug()) {
+            LOG.info("  Resolved: " + id);
             for (Artifact a : rc) {
-                Logger.debug("    depends on: " + a.getId() + ", scope: " + a.getScope() +", optional: "+a.isOptional()+ ", file: " + a.getFile());
+                LOG.debug("    depends on: " + a.getId() + ", scope: " + a.getScope() + ", optional: " + a.isOptional() + ", file: " + a.getFile());
             }
         }
 
@@ -437,7 +459,7 @@ public class MOPRepository {
         database.setDirectroy(new File(getLocalRepo(), ".index"));
         database.open(readOnly);
         try {
-            if( readOnly ) {
+            if (readOnly) {
                 synchronized (lock) {
                     c.execute(database);
                 }
@@ -452,7 +474,7 @@ public class MOPRepository {
     static private List<ArtifactId> toArtifactIds(String... artifactIds) {
         return toArtifactIds(Arrays.asList(artifactIds));
     }
-    
+
     static private List<ArtifactId> toArtifactIds(List<String> artifactIds) {
         ArrayList<ArtifactId> rc = new ArrayList<ArtifactId>(artifactIds.size());
         for (String id : artifactIds) {
@@ -460,7 +482,6 @@ public class MOPRepository {
         }
         return rc;
     }
-
 
     private static void copy(InputStream is, OutputStream os) throws IOException {
         byte buffer[] = new byte[1024 * 4];
@@ -515,14 +536,43 @@ public class MOPRepository {
         DefaultRepositoryLayout layout = new DefaultRepositoryLayout();
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
 
-        if( online ) {
+        if (online) {
             repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_DAILY);
         } else {
             repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
         }
 
         for (Map.Entry<String, String> entry : remoteRepositories.entrySet()) {
-            rc.add(repositorySystem.createArtifactRepository(entry.getKey(), entry.getValue(), layout, repositoryPolicy, repositoryPolicy));
+            String repoUrl = entry.getValue();
+
+            //Let's strip the username password out so that it doesn't get displayed:
+            Authentication auth = null;
+            try {
+                URL url = new URL(entry.getValue().toString());
+                String userInfo = url.getUserInfo();
+                if (userInfo != null) {
+                    StringTokenizer tok = new StringTokenizer(userInfo, ":");
+                    if (tok.countTokens() == 1) {
+                        auth = new Authentication(userInfo, null);
+                    } else if (tok.countTokens() == 2) {
+                        auth = new Authentication(tok.nextToken(), tok.nextToken());
+                    } else if (tok.countTokens() > 2) {
+                        auth = new Authentication(tok.nextToken(), userInfo.substring(userInfo.indexOf(":") + 1));
+                    }
+                    
+                    repoUrl = url.getProtocol() + "://" + repoUrl.substring(repoUrl.indexOf("@") + 1);
+                }
+            } catch (MalformedURLException e) {
+                LOG.warn("Invalid Repository url for: " + entry.getKey() + ": " + entry.getValue());
+            }
+
+            ArtifactRepository ar = repositorySystem.createArtifactRepository(entry.getKey(), repoUrl, layout, repositoryPolicy, repositoryPolicy);
+            if (auth != null) {
+                ar.setAuthentication(auth);
+            }
+
+            rc.add(ar);
+
         }
 
         return rc;
@@ -544,7 +594,7 @@ public class MOPRepository {
 
         //Always check local repo for updates:
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
-        if( online ) {
+        if (online) {
             repositoryPolicy.setUpdatePolicy(localRepoUpdatePolicy);
         } else {
             repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
@@ -555,11 +605,9 @@ public class MOPRepository {
         return repository;
     }
 
-
-    private static LinkedHashMap<String, String> getDefaultRepositories() {
+    private LinkedHashMap<String, String> getDefaultRepositories() {
         LinkedHashMap<String, String> rc = new LinkedHashMap<String, String>();
 
-        // We could propably load a property file from the base dir to get this list.
         rc.put(RepositorySystem.DEFAULT_REMOTE_REPO_ID, RepositorySystem.DEFAULT_REMOTE_REPO_URL);
         rc.put("fusesource.m2", "http://repo.fusesource.com/maven2");
         rc.put("fusesource.m2-snapshot", "http://repo.fusesource.com/maven2-snapshot");
@@ -570,9 +618,42 @@ public class MOPRepository {
         rc.put("mop.snapshot", "http://mop.fusesource.org/repo/snapshot");
         rc.put("mop.release", "http://mop.fusesource.org/repo/release");
 
+        Properties p = getRepositoryConfig();
+        for (Entry<Object, Object> entry : p.entrySet()) {
+            rc.put(entry.getKey().toString(), entry.getValue().toString());
+
+        }
         return rc;
     }
 
+    private Properties getRepositoryConfig() {
+        Properties rc = new Properties();
+
+        //Check for those configured at mop base:
+        File f = new File(getLocalRepo().getParent(), "repos.conf");
+        		
+        try {
+            if (f.exists()) {
+                rc.load(new FileInputStream(f));
+            }
+        } catch (Exception e) {
+            LOG.warn("Error reading repo config from " + f, e);
+        }
+     
+        //Check for user specified config:
+        if (System.getProperty(MOP_REPO_CONFIG_PROP) != null) {
+
+            f = new File(System.getProperty(MOP_REPO_CONFIG_PROP));
+            try {
+                if (f.exists()) {
+                    rc.load(new FileInputStream(f));
+                }
+            } catch (Exception e) {
+                LOG.warn("Error reading repo config from " + f, e);
+            }
+        }
+        return rc;
+    }
 
     // ----------------------------------------------------------------
     // Properties
@@ -581,9 +662,24 @@ public class MOPRepository {
     public PlexusContainer getContainer() {
         if (container == null) {
             try {
+                //Map commons logging to plexus log level:
+                int plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_DISABLED;
+                if (LOG.isDebugEnabled() || LOG.isTraceEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_DEBUG;
+                } else if (LOG.isInfoEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_INFO;
+                } else if (LOG.isWarnEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_WARN;
+                } else if (LOG.isErrorEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_ERROR;
+                } else if (LOG.isFatalEnabled()) {
+                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_FATAL;
+                }
+
                 ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader());
                 ContainerConfiguration configuration = new DefaultContainerConfiguration().setClassWorld(classWorld);
                 container = new DefaultPlexusContainer(configuration);
+                container.getLoggerManager().setThreshold(plexusLogLevel);
             } catch (PlexusContainerException e) {
                 throw new RuntimeException(e);
             }
@@ -591,7 +687,7 @@ public class MOPRepository {
         return container;
     }
 
-    public void setContainer(PlexusContainer container) {
+    public void setContainer(MutablePlexusContainer container) {
         this.container = container;
     }
 
@@ -606,11 +702,12 @@ public class MOPRepository {
                     warnDir = localRepo.getCanonicalPath();
                 } catch (Exception e) {
                 }
-                LOG.warn("No "+MOP_BASE+" system property defined so setting local repo to: " + warnDir);
+                LOG.warn("No " + MOP_BASE + " system property defined so setting local repo to: " + warnDir);
             }
         }
         return localRepo;
     }
+    
 
     public void setLocalRepo(File localRepo) {
         this.localRepo = localRepo;
@@ -621,7 +718,7 @@ public class MOPRepository {
     }
 
     public void setAlwaysCheckUserLocalRepo(boolean alwaysCheckUserLocalRepo) {
-        if( alwaysCheckUserLocalRepo ) {
+        if (alwaysCheckUserLocalRepo) {
             localRepoUpdatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS;
         } else {
             localRepoUpdatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER;

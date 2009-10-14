@@ -8,6 +8,10 @@
 package org.fusesource.mop.apt;
 
 
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Set;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableCollection;
 
@@ -16,9 +20,6 @@ import com.sun.mirror.apt.AnnotationProcessorEnvironment;
 import com.sun.mirror.apt.AnnotationProcessorFactory;
 import com.sun.mirror.declaration.AnnotationTypeDeclaration;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Set;
 
 
 /**
@@ -29,20 +30,22 @@ public class MopAnnotationProcessorFactory implements AnnotationProcessorFactory
     public static final String COMMAND_ANNOTATION_CLASSNAME = "org.fusesource.mop.Command";
 
     // Process any set of annotations
-    private static final Collection<String> supportedAnnotations = unmodifiableCollection(Arrays.asList(COMMAND_ANNOTATION_CLASSNAME));
+    private static final Collection<String> SUPPORTED_ANNOTATIONS 
+        = unmodifiableCollection(Arrays.asList(COMMAND_ANNOTATION_CLASSNAME));
 
     // No supported options
-    private static final Collection<String> supportedOptions = emptySet();
+    private static final Collection<String> SUPPORTED_OPTIONS = emptySet();
 
     public Collection<String> supportedAnnotationTypes() {
-        return supportedAnnotations;
+        return SUPPORTED_ANNOTATIONS;
     }
 
     public Collection<String> supportedOptions() {
-        return supportedOptions;
+        return SUPPORTED_OPTIONS;
     }
 
-    public AnnotationProcessor getProcessorFor(Set<AnnotationTypeDeclaration> atds, AnnotationProcessorEnvironment env) {
+    public AnnotationProcessor getProcessorFor(Set<AnnotationTypeDeclaration> atds,
+                                               AnnotationProcessorEnvironment env) {
         return new MopAnnotationProcessor(env);
     }
 }

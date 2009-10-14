@@ -21,9 +21,11 @@ import org.fusesource.mop.support.ConfiguresMop;
 public abstract class AbstractContainerBase implements ConfiguresMop {
     
     private static final transient Log LOG = LogFactory.getLog(AbstractContainerBase.class);
+    private static final long START_DELAY = 15 * 1000; // 15 secs
     
     protected String version = "RELEASE";
     protected MOP mop;
+    protected String secondaryArgs = "";
     
     public void installAndLaunch(List<String> params) throws Exception {
         LOG.info(String.format("Installing " + getContainerName() + " %s", version));
@@ -48,14 +50,20 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
             FileUtils.copyFileToDirectory(file, deployFolder);            
         }
 
-        
         List<String> secondary = getSecondaryCommand(root, params);
         if (secondary != null) {
-            Thread.sleep(10 * 1000);
+            Thread.sleep(START_DELAY);
             mop.execAndWait(secondary);
         }
-
+                
         ProcessRunner runner = mop.getProcessRunner();
+        
+        String input = getInput();
+        if (input != null) {
+            Thread.sleep(5 * 1000);
+            runner.sendToInput(input);
+        }
+        
         if( runner!=null ) {
             runner.join();
         }
@@ -78,8 +86,25 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
     protected abstract File getDeployFolder(File root);
 
     protected abstract List<String> getSecondaryCommand(File root, List<String> params);
+    
+    protected abstract String getInput();
 
-    private boolean isWindows() {
+    protected void extractSecondaryCommands(List<String> params) {
+        for (int i = 0 ; i < params.size() ; i++) {
+            String param = params.get(i);
+            if ("-c".equals(param) || "--commands".equals(param)) {
+                int remaining = params.size() - (i + 1);
+                params.remove(i);
+                for (int j = 0 ; j < remaining ; j++) {
+                    secondaryArgs += params.get(i);
+                    secondaryArgs += " ";
+                    params.remove(i);
+                }
+            }
+        }
+    }
+    
+    protected boolean isWindows() {
         String os = System.getProperty("os.name");
         return os != null && os.toLowerCase().contains("windows") ? true : false;
     }

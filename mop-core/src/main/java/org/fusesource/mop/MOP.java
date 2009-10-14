@@ -15,33 +15,32 @@ import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLClassLoader;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.LinkedHashMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
-import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.GnuParser;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
-
+import org.codehaus.plexus.DefaultPlexusContainer;
+import org.codehaus.plexus.MutablePlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
-
 import org.fusesource.mop.commands.CloudMixAgent;
+import org.fusesource.mop.commands.CloudMixController;
 import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
 import org.fusesource.mop.commands.Karaf;
@@ -52,6 +51,7 @@ import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
 import org.fusesource.mop.support.Logger;
 import org.fusesource.mop.support.MethodCommandDefinition;
+
 import static org.fusesource.mop.support.OptionBuilder.ob;
 
 /**
@@ -236,7 +236,7 @@ public class MOP {
         }
 
         repository.setOnline(!cli.hasOption("o"));
-        Logger.debug("online mode: " + repository.isOnline());
+        LOG.debug("online mode: " + repository.isOnline());
 
         String localRepo = cli.getOptionValue('l');
         if (localRepo != null) {
@@ -504,25 +504,24 @@ public class MOP {
     }
 
     public void exec(List<String> commandLine) throws Exception {
-        System.out.println("*** execing: " + java.util.Arrays.asList(commandLine));
-        processRunner = doExec(commandLine);
+        LOG.info("execing: " + commandLine);
+        processRunner = doExec(commandLine, true);
     }
     
     public void execAndWait(List<String> commandLine) throws Exception {
-        ProcessRunner pRunner = doExec(commandLine);
+        ProcessRunner pRunner = doExec(commandLine, false);
         if (pRunner != null) {
             pRunner.join();
         }
     }
     
-    private ProcessRunner doExec(List<String> commandLine) throws Exception {
-        Logger.debug("execing: " + commandLine);
+    private ProcessRunner doExec(List<String> commandLine, boolean redirectInput) throws Exception {
+        LOG.info("MOP Executing " + commandLine);
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
 
-        String[] env = {};
+        String[] env = null;
         if (isWindows()) {
-            
             Map<String, String> envMap = System.getenv();
             env = new String[envMap.size()];
             int ind = 0;
@@ -531,7 +530,8 @@ public class MOP {
             }
         }
 
-        return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory);
+        return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env,
+                                         workingDirectory, redirectInput);
     }
 
 
@@ -657,10 +657,10 @@ public class MOP {
                         }
                     }
                 } else {
-                    Logger.debug("file " + file + " has no manifest main attributes: " + attributes);
+                    LOG.debug("file " + file + " has no manifest main attributes: " + attributes);
                 }
             } else {
-                Logger.debug("file " + file + " has no manifest");
+                LOG.debug("file " + file + " has no manifest");
             }
         }
         if (className == null) {
@@ -678,7 +678,7 @@ public class MOP {
         URLClassLoader classLoader = MOPRepository.createFileClassLoader(null, dependencies);
         Thread.currentThread().setContextClassLoader(classLoader);
 
-        Logger.debug("Attempting to load class: " + className);
+        LOG.debug("Attempting to load class: " + className);
         Class<?> aClass = classLoader.loadClass(className);
         Method method = aClass.getMethod("main", String[].class);
         String[] commandLineArgs = reminingArgs.toArray(new String[reminingArgs.size()]);
@@ -743,6 +743,7 @@ public class MOP {
 
         // TODO it would be better to auto-discover these from the package!!!
         registerCommandMethods(new CloudMixAgent());
+        registerCommandMethods(new CloudMixController());
         registerCommandMethods(new Fork());
         registerCommandMethods(new Install());
         registerCommandMethods(new ServiceMix());
@@ -887,7 +888,7 @@ public class MOP {
         return repository.isTransitive();
     }
 
-    public void setContainer(PlexusContainer container) {
+    public void setContainer(MutablePlexusContainer container) {
         repository.setContainer(container);
     }
 

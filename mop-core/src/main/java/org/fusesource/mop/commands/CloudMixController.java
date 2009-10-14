@@ -16,38 +16,34 @@ import org.fusesource.mop.Optional;
 /**
  * @version $Revision: 1.1 $
  */
-public class CloudMixAgent {
+public class CloudMixController {
 
     @Optional
-    private String port = "0";
+    private String port = "8181";
 
     /**
      * Starts a CloudMix agent
      */
     @Command
-    public void cloudmixAgent(MOP mop, 
-                              @Optional String url, 
-                              @Optional String profile, 
-                              @Optional String workDir) throws Exception {
-        mop.setSystemProperty("agent.controller.uri", url);
-        mop.setSystemProperty("agent.profile", profile);
-        mop.setSystemProperty("agent.workdir", workDir);
+    public void cloudmixController(MOP mop, @Optional String port) throws Exception {
 
-        System.out.println("System properties: " + mop.getSystemProperties());
+        if (port != null) {
+            this.port = port;
+        }
+
+        System.out.println("Cloudlaunch controller port is " + this.port);
         LinkedList<String> commands = new LinkedList<String>();
         commands.add("war");
 
         // TODO how to extract the version of this command???
         System.out.println("Version: " + mop.getDefaultVersion());
-        commands.add("org.fusesource.cloudmix:org.fusesource.cloudmix.agent.mop.web:" 
-                     + mop.getDefaultVersion());
+        commands.add("org.fusesource.cloudmix:org.fusesource.cloudmix.controller.webapp:" + mop.getDefaultVersion());
 
         // lets default the port
         commands.add("--port");
-        commands.add(port);
+        commands.add(this.port);
 
         mop.executeCommand(commands);
     }
-
 
 }
