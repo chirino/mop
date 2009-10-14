@@ -53,6 +53,7 @@ import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.classworlds.ClassWorld;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.Database;
+import org.fusesource.mop.support.FileSupport;
 import org.fusesource.mop.support.Logger;
 
 /**
@@ -78,10 +79,15 @@ public class MOPRepository {
     private boolean transitive = System.getProperty(MOP_TRANSITIVE_PROP, "true").equals("true");
     private boolean includeOptional = System.getProperty(MOP_INCLUDE_OPTIONAL_PROP, "false").equals("true");
     private String localRepoUpdatePolicy = System.getProperty(MOP_REPO_LOCAL_CHECK_PROP, ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
+    private String updatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_DAILY;
 
     private MutablePlexusContainer container;
     private File localRepo;
     private LinkedHashMap<String, String> remoteRepositories = getDefaultRepositories();
+
+    public void purge() throws Exception {
+        FileSupport.recursiveDelete(getLocalRepo());
+    }
 
     /**
      * @param artifactIds
@@ -420,6 +426,11 @@ public class MOPRepository {
         if (!list.isEmpty()) {
             throw new Exception("The following artifacts could not be downloaded: " + list);
         }
+        
+        if(/*result.getArtifacts().isEmpty() &&*/  !result.getExceptions().isEmpty())
+        {
+            throw new Exception("Error resolving artifact " + artifact, result.getExceptions().get(0));
+        }
 
         Set<Artifact> rc = result.getArtifacts();
         if (online) {
@@ -537,7 +548,7 @@ public class MOPRepository {
         ArtifactRepositoryPolicy repositoryPolicy = new ArtifactRepositoryPolicy();
 
         if (online) {
-            repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_DAILY);
+            repositoryPolicy.setUpdatePolicy(updatePolicy);
         } else {
             repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
         }
@@ -559,7 +570,7 @@ public class MOPRepository {
                     } else if (tok.countTokens() > 2) {
                         auth = new Authentication(tok.nextToken(), userInfo.substring(userInfo.indexOf(":") + 1));
                     }
-                    
+
                     repoUrl = url.getProtocol() + "://" + repoUrl.substring(repoUrl.indexOf("@") + 1);
                 }
             } catch (MalformedURLException e) {
@@ -631,7 +642,7 @@ public class MOPRepository {
 
         //Check for those configured at mop base:
         File f = new File(getLocalRepo().getParent(), "repos.conf");
-        		
+
         try {
             if (f.exists()) {
                 rc.load(new FileInputStream(f));
@@ -639,7 +650,7 @@ public class MOPRepository {
         } catch (Exception e) {
             LOG.warn("Error reading repo config from " + f, e);
         }
-     
+
         //Check for user specified config:
         if (System.getProperty(MOP_REPO_CONFIG_PROP) != null) {
 
@@ -707,7 +718,6 @@ public class MOPRepository {
         }
         return localRepo;
     }
-    
 
     public void setLocalRepo(File localRepo) {
         this.localRepo = localRepo;
@@ -721,7 +731,7 @@ public class MOPRepository {
         if (alwaysCheckUserLocalRepo) {
             localRepoUpdatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS;
         } else {
-            localRepoUpdatePolicy = ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER;
+            localRepoUpdatePolicy = updatePolicy;
         }
     }
 
@@ -763,5 +773,20 @@ public class MOPRepository {
 
     public void setIncludeOptional(boolean includeOptional) {
         this.includeOptional = includeOptional;
+    }
+
+    /**
+     * @param updatePolicy
+     *            The update policy to use.
+     */
+    public void setUpdatePolicy(String updatePolicy) {
+        this.updatePolicy = updatePolicy;
+    }
+
+    /**
+     * @return the current update policy
+     */
+    public String getUpdatePolicy() {
+        return this.updatePolicy;
     }
 }

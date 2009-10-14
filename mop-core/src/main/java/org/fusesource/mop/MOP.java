@@ -7,6 +7,8 @@
  **************************************************************************************/
 package org.fusesource.mop;
 
+import static org.fusesource.mop.support.OptionBuilder.ob;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -36,7 +38,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
-import org.codehaus.plexus.DefaultPlexusContainer;
+import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.codehaus.plexus.MutablePlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
 import org.fusesource.mop.commands.CloudMixAgent;
@@ -44,15 +46,17 @@ import org.fusesource.mop.commands.CloudMixController;
 import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
 import org.fusesource.mop.commands.Karaf;
+import org.fusesource.mop.commands.Offline;
+import org.fusesource.mop.commands.Online;
+import org.fusesource.mop.commands.Purge;
 import org.fusesource.mop.commands.ServiceMix;
 import org.fusesource.mop.commands.Shell;
+import org.fusesource.mop.commands.Update;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
 import org.fusesource.mop.support.Logger;
 import org.fusesource.mop.support.MethodCommandDefinition;
-
-import static org.fusesource.mop.support.OptionBuilder.ob;
 
 /**
  * Runs a Java class from an artifact loaded from the local maven repository
@@ -66,7 +70,7 @@ public class MOP {
     public static final String DEFAULT_TYPE = "jar";
     public static final String MOP_WORKING_DIR_SYSPROPERTY = "org.fusesource.mop.workingdir";
 
-    private  MOPRepository repository = new MOPRepository();
+    private MOPRepository repository = new MOPRepository();
     private Options options;
     private String className;
 
@@ -77,36 +81,21 @@ public class MOP {
     private String defaultType = DEFAULT_TYPE;
     private File workingDirectory;
     private ProcessRunner processRunner;
-    private Map<String,String> systemProperties = new HashMap<String, String>();
+    private Map<String, String> systemProperties = new HashMap<String, String>();
 
     static public Options createOptions() {
         Options options = new Options();
-        options.addOption("h", "help",    false, "Display help information");
+        options.addOption("h", "help", false, "Display help information");
         options.addOption("o", "offline", false, "Work offline");
-        options.addOption("X", "debug",   false, "Produce execution debug output");
+        options.addOption("X", "debug", false, "Produce execution debug output");
 
-        options.addOption(ob()
-                .id("n")
-                .name("no-repos")
-                .description("Do not use any default repos").op());
+        options.addOption(ob().id("n").name("no-repos").description("Do not use any default repos").op());
 
-        options.addOption(ob()
-                .id("l")
-                .name("local")
-                .arg("directory")
-                .description("Specifies the local mop repo").op());
+        options.addOption(ob().id("l").name("local").arg("directory").description("Specifies the local mop repo").op());
 
-        options.addOption(ob()
-                .id("r")
-                .name("repo")
-                .arg("repo")
-                .description("Add a remote maven repo").op());
+        options.addOption(ob().id("r").name("repo").arg("repo").description("Add a remote maven repo").op());
 
-        options.addOption(ob()
-                .id("s")
-                .name("scope")
-                .arg("scope")
-                .description("Maven scope of transitive dependencies to include, defaults to 'runtime'").op());
+        options.addOption(ob().id("s").name("scope").arg("scope").description("Maven scope of transitive dependencies to include, defaults to 'runtime'").op());
 
         return options;
     }
@@ -116,9 +105,9 @@ public class MOP {
         String app = System.getProperty("mop.application", "mop");
 
         // The commented out line is 80 chars long.  We have it here as a visual reference
-//      p("                                                                                ");
+        //      p("                                                                                ");
         p();
-        p("Usage: "+ app +" [options] <command>");
+        p("Usage: " + app + " [options] <command>");
         p();
         p("Description:");
         p();
@@ -138,8 +127,8 @@ public class MOP {
         p();
         for (Map.Entry<String, CommandDefinition> entry : commands.entrySet()) {
             CommandDefinition command = entry.getValue();
-            pw("  * "+entry.getKey()+": "+removeNewLines(command.getDescription()), 4);
-            pw("      usage: "+app+" [options] "+entry.getKey()+" "+removeNewLines(command.getUsage()), 6);
+            pw("  * " + entry.getKey() + ": " + removeNewLines(command.getDescription()), 4);
+            pw("      usage: " + app + " [options] " + entry.getKey() + " " + removeNewLines(command.getUsage()), 6);
             p();
         }
 
@@ -183,9 +172,9 @@ public class MOP {
     }
 
     /**
-     * Executes the given MOP command and waits for the response, blocking the calling thread
-     * until any child processes complete.
-     *
+     * Executes the given MOP command and waits for the response, blocking the
+     * calling thread until any child processes complete.
+     * 
      * @return the exit code
      */
     public int executeAndWait(String[] args) {
@@ -203,12 +192,12 @@ public class MOP {
         try {
             cli = new GnuParser().parse(createOptions(), args, true);
         } catch (ParseException e) {
-            System.err.println( "Unable to parse command line options: " + e.getMessage() );
+            System.err.println("Unable to parse command line options: " + e.getMessage());
             displayHelp();
             return 1;
         }
 
-        if( cli.hasOption("h") ) {
+        if (cli.hasOption("h")) {
             displayHelp();
             return 0;
         }
@@ -216,18 +205,18 @@ public class MOP {
         // lets process the options
         Logger.debug = cli.hasOption("X");
 
-        if( cli.hasOption("n") ) {
+        if (cli.hasOption("n")) {
             getRemoteRepositories().clear();
         }
 
         String scope = cli.getOptionValue("s", "runtime");
         repository.setScope(scope);
         String[] repos = cli.getOptionValues("r");
-        if( repos!=null ) {
+        if (repos != null) {
             for (String repo : repos) {
                 String[] rc = repo.split("=", 2);
-                if( rc.length != 2 ) {
-                    System.err.println("Invalid repository.  Expected format is: <id>=<url>, actual: "+repo);
+                if (rc.length != 2) {
+                    System.err.println("Invalid repository.  Expected format is: <id>=<url>, actual: " + repo);
                     displayHelp();
                     return 1;
                 }
@@ -362,7 +351,6 @@ public class MOP {
         p();
     }
 
-
     private void classpathCommand(LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
         String classpath = classpath();
@@ -377,7 +365,6 @@ public class MOP {
         repository.copy(targetDir, artifactIds);
     }
 
-
     protected void warCommand(LinkedList<String> argList) throws Exception {
         assertNotEmpty(argList);
         defaultType = "war";
@@ -391,7 +378,6 @@ public class MOP {
         repository.setTransitive(true);
 
         LOG.debug("Running war with files: " + files);
-
 
         LinkedList<String> newArgs = new LinkedList<String>();
         newArgs.add("jar");
@@ -428,7 +414,6 @@ public class MOP {
         }
     }
 
-
     private void listCommand(LinkedList<String> argList) throws Exception {
         String type = "installed";
         if (!argList.isEmpty()) {
@@ -441,8 +426,6 @@ public class MOP {
             System.out.println(a);
         }
     }
-
-
 
     private void uninstallCommand(LinkedList<String> argList) throws Exception {
         artifactIds = parseArtifactList(argList);
@@ -494,7 +477,8 @@ public class MOP {
     }
 
     /**
-     * Appends the currently defined system properties to this command line as a series of <code>-Dname=value</code> parameters
+     * Appends the currently defined system properties to this command line as a
+     * series of <code>-Dname=value</code> parameters
      */
     public void addSystemProperties(List<String> commandLine) {
         Set<Map.Entry<String, String>> entries = systemProperties.entrySet();
@@ -507,14 +491,14 @@ public class MOP {
         LOG.info("execing: " + commandLine);
         processRunner = doExec(commandLine, true);
     }
-    
+
     public void execAndWait(List<String> commandLine) throws Exception {
         ProcessRunner pRunner = doExec(commandLine, false);
         if (pRunner != null) {
             pRunner.join();
         }
     }
-    
+
     private ProcessRunner doExec(List<String> commandLine, boolean redirectInput) throws Exception {
         LOG.info("MOP Executing " + commandLine);
 
@@ -530,10 +514,8 @@ public class MOP {
             }
         }
 
-        return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env,
-                                         workingDirectory, redirectInput);
+        return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory, redirectInput);
     }
-
 
     public String classpath() throws Exception {
         return repository.classpath(artifactIds);
@@ -541,7 +523,7 @@ public class MOP {
 
     public ArtifactId parseArtifactId(String value) throws UsageException {
         ArtifactId id = ArtifactId.parse(value, defaultVersion, defaultType);
-        if (id==null) {
+        if (id == null) {
             throw new UsageException("Invalid artifactId: " + value);
         }
         return id;
@@ -552,21 +534,21 @@ public class MOP {
     }
 
     /**
-     * Adds the system property used for any child forked JVM if the value is not null else remove the property
+     * Adds the system property used for any child forked JVM if the value is
+     * not null else remove the property
      */
     public void setSystemProperty(String name, String value) {
         if (value != null) {
             systemProperties.put(name, value);
             System.setProperty(name, value);
-        }
-        else {
+        } else {
             systemProperties.remove(name);
         }
     }
 
-
     /**
-     * Returns true if this is an additional artifact string; typically if it begins with +
+     * Returns true if this is an additional artifact string; typically if it
+     * begins with +
      */
     public boolean isAnotherArtifactId(String arg) {
         return arg.startsWith("+");
@@ -606,10 +588,6 @@ public class MOP {
         return buffer.toString();
     }
 
-
-
-
-
     protected void resetValues() {
         // lets reset values in case we chain things together...
         processRunner = null;
@@ -620,7 +598,6 @@ public class MOP {
         // lets not clear the system properties as they tend to be expected to flow through to the next invocation...
         //systemProperties.clear();
     }
-
 
     protected void execClass(List<File> dependencies) throws Exception {
         List<String> commandLine = new ArrayList<String>();
@@ -635,7 +612,7 @@ public class MOP {
     }
 
     private boolean isWindows() {
-    	String os = System.getProperty("os.name");
+        String os = System.getProperty("os.name");
         return os != null && os.toLowerCase().contains("windows") ? true : false;
     }
 
@@ -668,8 +645,6 @@ public class MOP {
         }
     }
 
-
-
     private List<File> resolveFiles() throws Exception {
         return repository.resolveFiles(artifactIds);
     }
@@ -682,10 +657,9 @@ public class MOP {
         Class<?> aClass = classLoader.loadClass(className);
         Method method = aClass.getMethod("main", String[].class);
         String[] commandLineArgs = reminingArgs.toArray(new String[reminingArgs.size()]);
-        Object[] methodArgs = {commandLineArgs};
+        Object[] methodArgs = { commandLineArgs };
         method.invoke(null, methodArgs);
     }
-
 
     private ArrayList<ArtifactId> parseArtifactList(LinkedList<String> values) throws UsageException {
         ArrayList<ArtifactId> rc = new ArrayList<ArtifactId>();
@@ -705,6 +679,8 @@ public class MOP {
     }
 
     static private class UsageException extends Exception {
+        private static final long serialVersionUID = 1L;
+
         public UsageException(String message) {
             super(message);
         }
@@ -742,6 +718,7 @@ public class MOP {
         registerDefaultCommand("help", "<command(s)>", "displays help summarising all of the commands or shows custom help for each command listed");
 
         // TODO it would be better to auto-discover these from the package!!!
+        // This might be a starting point http://forums.sun.com/thread.jspa?threadID=341935&start=15&tstart=0
         registerCommandMethods(new CloudMixAgent());
         registerCommandMethods(new CloudMixController());
         registerCommandMethods(new Fork());
@@ -749,6 +726,10 @@ public class MOP {
         registerCommandMethods(new ServiceMix());
         registerCommandMethods(new Karaf());
         registerCommandMethods(new Shell());
+        registerCommandMethods(new Update());
+        registerCommandMethods(new Offline());
+        registerCommandMethods(new Online());
+        registerCommandMethods(new Purge());
     }
 
     private void registerCommandMethods(Object commandObject) {
@@ -761,7 +742,6 @@ public class MOP {
             }
         }
     }
-
 
     protected void registerDefaultCommand(String name, String description) {
         registerDefaultCommand(name, "<artifact(s)> [<args(s)>]", description);
@@ -823,6 +803,10 @@ public class MOP {
     public void setArtifactIds(List<ArtifactId> artifactIds) {
         this.artifactIds = artifactIds;
     }
+    
+    public void setArtifactIds(ArtifactId ... artifactIds) {
+        this.artifactIds = Arrays.asList(artifactIds);
+    }
 
     public String getDefaultType() {
         return defaultType;
@@ -862,6 +846,23 @@ public class MOP {
 
     public void setOnline(boolean online) {
         repository.setOnline(online);
+    }
+
+    /**
+     * @param updatePolicy
+     *            The update policy to use (e.g. always, never)
+     * @see ArtifactRepositoryPolicy
+     */
+    public void setUpdatePolicy(String updatePolicy) {
+        repository.setUpdatePolicy(updatePolicy);
+    }
+
+    /**
+     * @return the current update policy
+     * @see ArtifactRepositoryPolicy
+     */
+    public String getUpdatePolicy() {
+        return repository.getUpdatePolicy();
     }
 
     public void setScope(String scope) {
@@ -906,5 +907,12 @@ public class MOP {
 
     public void setRemoteRepositories(LinkedHashMap<String, String> remoteRepositories) {
         repository.setRemoteRepositories(remoteRepositories);
+    }
+
+    /**
+     * Purges the local repository:
+     */
+    public void purgeRepository() throws Exception {
+        repository.purge();
     }
 }
