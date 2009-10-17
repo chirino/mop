@@ -44,6 +44,8 @@ import org.apache.maven.artifact.resolver.filter.AndArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ScopeArtifactFilter;
 import org.apache.maven.repository.RepositorySystem;
+import org.apache.maven.repository.legacy.resolver.transform.ArtifactTransformationManager;
+import org.apache.maven.repository.legacy.resolver.transform.LocalSnapshotArtifactTransformation;
 import org.codehaus.plexus.ContainerConfiguration;
 import org.codehaus.plexus.DefaultContainerConfiguration;
 import org.codehaus.plexus.DefaultPlexusContainer;
@@ -51,6 +53,7 @@ import org.codehaus.plexus.MutablePlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.classworlds.ClassWorld;
+import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.Database;
 import org.fusesource.mop.support.FileSupport;
@@ -63,6 +66,11 @@ public class MOPRepository {
 
     private static final transient Log LOG = LogFactory.getLog(MOPRepository.class);
     public static final String MOP_BASE = "mop.base";
+    /**
+     * Specifies a property file containing repository definitions
+     * 
+     * @see #addConfiguredRepositories(File)
+     */
     public static final String MOP_REPO_CONFIG_PROP = "mop.repo.conf";
     public static final String MOP_SCOPE_PROP = "mop.scope";
     public static final String MOP_ONLINE_PROP = "mop.online";
@@ -426,9 +434,8 @@ public class MOPRepository {
         if (!list.isEmpty()) {
             throw new Exception("The following artifacts could not be downloaded: " + list);
         }
-        
-        if(/*result.getArtifacts().isEmpty() &&*/  !result.getExceptions().isEmpty())
-        {
+
+        if (/* result.getArtifacts().isEmpty() && */!result.getExceptions().isEmpty()) {
             throw new Exception("Error resolving artifact " + artifact, result.getExceptions().get(0));
         }
 
@@ -610,6 +617,7 @@ public class MOPRepository {
         } else {
             repositoryPolicy.setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_NEVER);
         }
+
         repositoryPolicy.setChecksumPolicy(ArtifactRepositoryPolicy.CHECKSUM_POLICY_IGNORE);
         localRepository[0] = repositorySystem.createArtifactRepository(id, "file://" + path, layout, repositoryPolicy, repositoryPolicy);
         ArtifactRepository repository = localRepository[0];
@@ -629,23 +637,20 @@ public class MOPRepository {
         rc.put("mop.snapshot", "http://mop.fusesource.org/repo/snapshot");
         rc.put("mop.release", "http://mop.fusesource.org/repo/release");
 
-        Properties p = getRepositoryConfig();
-        for (Entry<Object, Object> entry : p.entrySet()) {
-            rc.put(entry.getKey().toString(), entry.getValue().toString());
-
-        }
+        //Add in configured repositories:
+        collectDefaultConfiguredRepositories(rc);
         return rc;
     }
 
-    private Properties getRepositoryConfig() {
-        Properties rc = new Properties();
+    private void collectDefaultConfiguredRepositories(LinkedHashMap<String, String> list) {
+        Properties p = new Properties();
 
         //Check for those configured at mop base:
         File f = new File(getLocalRepo().getParent(), "repos.conf");
 
         try {
             if (f.exists()) {
-                rc.load(new FileInputStream(f));
+                p.load(new FileInputStream(f));
             }
         } catch (Exception e) {
             LOG.warn("Error reading repo config from " + f, e);
@@ -657,11 +662,59 @@ public class MOPRepository {
             f = new File(System.getProperty(MOP_REPO_CONFIG_PROP));
             try {
                 if (f.exists()) {
-                    rc.load(new FileInputStream(f));
+                    p.load(new FileInputStream(f));
                 }
             } catch (Exception e) {
                 LOG.warn("Error reading repo config from " + f, e);
             }
+        }
+
+        for (Entry<Object, Object> entry : p.entrySet()) {
+            list.put(entry.getKey().toString(), entry.getValue().toString());
+        }
+    }
+
+    /**
+     * Returns the set of repositories configured by a repos.conf file these are
+     * located at $mop.base/repos.conf and $mop.repo.conf
+     * 
+     * @return the set of repositories configured by repos.conf:
+     * @see #MOP_BASE, {@link #MOP_REPO_CONFIG_PROP}
+     * 
+     */
+    public LinkedHashMap<String, String> getConfiguredRepositories() {
+        LinkedHashMap<String, String> rc = new LinkedHashMap<String, String>();
+        collectDefaultConfiguredRepositories(rc);
+        return rc;
+    }
+
+    /**
+     * Adds the repositories in the specified configuration file to the list of
+     * remote repositories.
+     * 
+     * The specified input file should contain key=value pairs of the form: <br>
+     * repo-id=url <br>
+     * For example:
+     * example.repo.snapshot=http://joe-user:joe-password@http://example
+     * .org/repo/snapshot
+     * example.repo.release=http://joe-user:joe-password@http:
+     * //example.org/repo/release
+     * 
+     * @param f
+     *            The file containing the repository configuration
+     */
+    public static LinkedHashMap<String, String> loadConfiguredRepositories(File f) {
+        LinkedHashMap<String, String> rc = new LinkedHashMap<String, String>();
+        Properties props = new Properties();
+        try {
+            if (f.exists()) {
+                props.load(new FileInputStream(f));
+            }
+        } catch (Exception e) {
+            LOG.warn("Error reading repo config from " + f, e);
+        }
+        for (Entry<Object, Object> entry : props.entrySet()) {
+            rc.put(entry.getKey().toString(), entry.getValue().toString());
         }
         return rc;
     }
@@ -670,6 +723,7 @@ public class MOPRepository {
     // Properties
     // ----------------------------------------------------------------
 
+    @SuppressWarnings("unchecked")
     public PlexusContainer getContainer() {
         if (container == null) {
             try {
@@ -691,6 +745,17 @@ public class MOPRepository {
                 ContainerConfiguration configuration = new DefaultContainerConfiguration().setClassWorld(classWorld);
                 container = new DefaultPlexusContainer(configuration);
                 container.getLoggerManager().setThreshold(plexusLogLevel);
+
+                try {
+                    ArtifactTransformationManager transformer;
+                    transformer = (ArtifactTransformationManager) getContainer().lookup(ArtifactTransformationManager.class);
+                    LocalSnapshotArtifactTransformation transform = new LocalSnapshotArtifactTransformation();
+                    transform.setLocalRepoId(RepositorySystem.DEFAULT_LOCAL_REPO_ID);
+                    transformer.getArtifactTransformations().add(transform);
+                } catch (ComponentLookupException e) {
+                    LOG.warn("Error setting local snaphost resolution transformer, your .m2 snapshot updates may not be resolved correctly!", e);
+                }
+
             } catch (PlexusContainerException e) {
                 throw new RuntimeException(e);
             }
