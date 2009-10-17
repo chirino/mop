@@ -8,6 +8,7 @@
 package org.fusesource.mop;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
@@ -37,25 +38,19 @@ public class ProcessRunner {
     private StreamPipe errorHandler;
     private StreamPipe outputHandler;
     private StreamPipe inputHandler;
-    
 
-    public static ProcessRunner newInstance(String id, String[] cmd,
-                                            String[] env, File workingDirectory) throws Exception {
+    public static ProcessRunner newInstance(String id, String[] cmd, String[] env, File workingDirectory) throws Exception {
         return newInstance(id, cmd, env, workingDirectory, false);
     }
-    public static ProcessRunner newInstance(String id, String[] cmd,
-                                            String[] env, File workingDirectory,
-                                            boolean redirectInput) throws Exception {
+
+    public static ProcessRunner newInstance(String id, String[] cmd, String[] env, File workingDirectory, boolean redirectInput) throws Exception {
         return newInstance(id, cmd, env, workingDirectory, System.out, System.err, redirectInput);
     }
 
     /**
      * Returns a newly created process runner
      */
-    private static ProcessRunner newInstance(String id, String[] cmd, String[] env,
-                                            File workingDirectory, 
-                                            OutputStream sout, OutputStream serr,
-                                            boolean redirectInput) throws Exception {
+    private static ProcessRunner newInstance(String id, String[] cmd, String[] env, File workingDirectory, OutputStream sout, OutputStream serr, boolean redirectInput) throws Exception {
         final Process process = Runtime.getRuntime().exec(cmd, env, workingDirectory);
 
         if (process == null) {
@@ -68,19 +63,14 @@ public class ProcessRunner {
         return prefix + processIdCounter.incrementAndGet();
     }
 
-
-    public ProcessRunner(String id, Process theProcess,
-                         OutputStream sout, OutputStream serr, 
-                         boolean redirectInput) {
+    public ProcessRunner(String id, Process theProcess, OutputStream sout, OutputStream serr, boolean redirectInput) {
         this.id = id;
         this.process = theProcess;
 
         errorHandler = new StreamPipe(process.getErrorStream(), "Process Error Handler for: " + id, serr);
         outputHandler = new StreamPipe(process.getInputStream(), "Process Output Handler for: " + id, sout);
         if (redirectInput) {
-            inputHandler = new StreamPipe(System.in, "Process Input Hander for: " + id, 
-                                          process.getOutputStream(),
-                                          true);
+            inputHandler = new StreamPipe(System.in, "Process Input Hander for: " + id, process.getOutputStream());
         }
 
         thread = new Thread("Process Watcher for: " + id) {
@@ -98,8 +88,7 @@ public class ProcessRunner {
                         inputHandler.interrupt();
                     }
                 } catch (InterruptedException e) {
-                }
-                finally {
+                } finally {
                     running.set(false);
                     onCompleted();
                 }
@@ -107,7 +96,7 @@ public class ProcessRunner {
         };
         thread.start();
     }
-    
+
     public void sendToInput(String s) {
         try {
             OutputStream out = process.getOutputStream();
@@ -120,7 +109,7 @@ public class ProcessRunner {
 
     /**
      * Joins the process, waiting for it to complete
-     *
+     * 
      * @returns the exit code
      */
     public int join() {
@@ -134,9 +123,9 @@ public class ProcessRunner {
         return getExitValue();
     }
 
-
     /**
-     * Returns -1 if the process is still running or the actual exit code if it is completed
+     * Returns -1 if the process is still running or the actual exit code if it
+     * is completed
      */
     public int getExitValue() {
         return exitValue;
@@ -144,7 +133,7 @@ public class ProcessRunner {
 
     /**
      * Returns true if this process is still running
-     *
+     * 
      * @return
      */
     public boolean isRunning() {
@@ -171,11 +160,11 @@ public class ProcessRunner {
     }
 
     /**
-     * Provides a custom hook when a process completes (with or without a failure)
+     * Provides a custom hook when a process completes (with or without a
+     * failure)
      */
     protected void onCompleted() {
     }
-
 
     private class StreamPipe implements Runnable {
         private final InputStream in;
@@ -183,15 +172,8 @@ public class ProcessRunner {
         private Thread thread;
 
         public StreamPipe(InputStream in, String name, OutputStream out) {
-            this(in, name, out, true);
-        }
-        public StreamPipe(InputStream in, String name, OutputStream out, boolean buffer) {
-            if (!buffer) {
-                this.in = in;
-            } else {
-                this.in = new BufferedInputStream(in);
-            }
-            this.out = out;
+            this.in = new BufferedInputStream(in, 2048);
+            this.out = new BufferedOutputStream(out, 2048);
             thread = new Thread(this, name);
             thread.setDaemon(true);
             thread.start();
@@ -200,6 +182,7 @@ public class ProcessRunner {
         public void join() throws InterruptedException {
             thread.join();
         }
+
         public void interrupt() {
             thread.interrupt();
         }
@@ -213,7 +196,28 @@ public class ProcessRunner {
                     }
 
                     out.write(b);
+                    if (in.available() > 0) {
+                        continue;
+                    }
+
+                    try {
+                        Thread.sleep(50);
+                        
+                    } catch (InterruptedException ie) {
+                        if (in.available() > 0) {
+                            Thread.currentThread().interrupt();
+                            continue;
+                        } else {
+                            out.flush();
+                            throw ie;
+                        }
+                    }
+                    
+                    if (in.available() > 0) {
+                        continue;
+                    }
                     out.flush();
+
                 }
             } catch (EOFException expected) {
                 // expected
