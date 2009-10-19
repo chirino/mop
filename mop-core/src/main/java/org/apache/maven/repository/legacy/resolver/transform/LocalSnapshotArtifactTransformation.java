@@ -7,6 +7,7 @@
  **************************************************************************************/
 package org.apache.maven.repository.legacy.resolver.transform;
 
+import java.awt.font.ShapeGraphicAttribute;
 import java.util.List;
 
 import org.apache.maven.artifact.Artifact;
@@ -52,7 +53,13 @@ public class LocalSnapshotArtifactTransformation implements ArtifactTransformati
 
                 if (m instanceof SnapshotArtifactRepositoryMetadata) {
                     SnapshotArtifactRepositoryMetadata snapshotMetadata = (SnapshotArtifactRepositoryMetadata) m;
-                    if (snapshotMetadata.getRepository().getId().equals(localRepoId)) {
+                    
+                    if(snapshotMetadata.getRepository() == null)
+                    {
+                        continue;
+                    }
+                    
+                    if (localRepoId.equals(snapshotMetadata.getRepository().getId())) {
 
                         Metadata metadata = snapshotMetadata.getMetadata();
 
