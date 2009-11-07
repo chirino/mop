@@ -7,7 +7,6 @@
  **************************************************************************************/
 package org.apache.maven.repository.legacy.resolver.transform;
 
-import java.awt.font.ShapeGraphicAttribute;
 import java.util.List;
 
 import org.apache.maven.artifact.Artifact;

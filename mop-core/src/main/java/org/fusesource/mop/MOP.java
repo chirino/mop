@@ -46,12 +46,9 @@ import org.fusesource.mop.commands.CloudMixController;
 import org.fusesource.mop.commands.Fork;
 import org.fusesource.mop.commands.Install;
 import org.fusesource.mop.commands.Karaf;
-import org.fusesource.mop.commands.Offline;
-import org.fusesource.mop.commands.Online;
-import org.fusesource.mop.commands.Purge;
+import org.fusesource.mop.commands.RepoConfig;
 import org.fusesource.mop.commands.ServiceMix;
 import org.fusesource.mop.commands.Shell;
-import org.fusesource.mop.commands.Update;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
@@ -726,10 +723,7 @@ public class MOP {
         registerCommandMethods(new ServiceMix());
         registerCommandMethods(new Karaf());
         registerCommandMethods(new Shell());
-        registerCommandMethods(new Update());
-        registerCommandMethods(new Offline());
-        registerCommandMethods(new Online());
-        registerCommandMethods(new Purge());
+        registerCommandMethods(new RepoConfig());
     }
 
     private void registerCommandMethods(Object commandObject) {
