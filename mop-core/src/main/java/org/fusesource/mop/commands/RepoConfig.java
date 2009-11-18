@@ -31,7 +31,7 @@ public class RepoConfig {
         mop.setOnline(true);
         mop.getRepository().setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
         
-        mop.executeCommand(args);
+        executeRemaining(mop,args);
     }
     
     /**
@@ -42,7 +42,7 @@ public class RepoConfig {
         LOG.info("Setting mop to offline mode");
 
         mop.setOnline(false);
-        mop.executeCommand(args);
+        executeRemaining(mop,args);
     }
     
     /**
@@ -53,7 +53,7 @@ public class RepoConfig {
         LOG.info("Setting mop to online mode");
 
         mop.setOnline(true);
-        mop.executeCommand(args);
+        executeRemaining(mop,args);
     }
     
     /**
@@ -64,23 +64,31 @@ public class RepoConfig {
         LOG.info("Puriging Repository");
 
         mop.purgeRepository();
-        mop.executeCommand(args);
+        executeRemaining(mop,args);
     }
     
     @Command
     public void includeOptional(MOP mop, LinkedList<String> args) throws Exception {
         LOG.info("Including optional dependencies");
         mop.getRepository().setIncludeOptional(true);
-        mop.executeCommand(args);
+        executeRemaining(mop,args);
     }
     
     @Command
     public void excludeOptional(MOP mop, LinkedList<String> args) throws Exception {
         LOG.info("Excluding optional dependencies");
         mop.getRepository().setIncludeOptional(false);
-        mop.executeCommand(args);
+        executeRemaining(mop,args);
     }
 
+    
+    private final void executeRemaining(MOP mop, LinkedList<String> args) throws Exception
+    {
+        if(!args.isEmpty())
+        {
+            mop.executeCommand(args);
+        }
+    }
     
     
 }
