@@ -21,7 +21,7 @@ import org.fusesource.mop.support.ConfiguresMop;
 public abstract class AbstractContainerBase implements ConfiguresMop {
     
     private static final transient Log LOG = LogFactory.getLog(AbstractContainerBase.class);
-    private static final long START_DELAY = 15 * 1000; // 15 secs
+    private static final long START_DELAY = 25 * 1000; // 25 secs
     
     protected String version = "RELEASE";
     protected MOP mop;
