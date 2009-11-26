@@ -1,5 +1,5 @@
 <commands>
-  <command name="spring" alias="run ${artifacts} org.fusesource.mop:mop-spring org.fusesource.mop.spring.Main">
+  <command name="spring" alias="run ${artifacts} +org.fusesource.mop:mop-spring:LATEST org.fusesource.mop.spring.Main">
     <description>
       Runs the given artifact(s) by starting the XML application context specified as an argument or defaults to
       META-INF/spring/*.xml
