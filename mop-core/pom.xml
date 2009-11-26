@@ -83,14 +83,15 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>apt-maven-plugin</artifactId>
+        <version>1.0-alpha-2</version>
         <configuration>
           <factory>org.fusesource.mop.apt.MopAnnotationProcessorFactory</factory>
         </configuration>
         <dependencies>
           <dependency>
-            <groupId>${pom.groupId}</groupId>
+            <groupId>${project.groupId}</groupId>
             <artifactId>mop-apt</artifactId>
-            <version>${pom.version}</version>
+            <version>${project.version}</version>
           </dependency>
         </dependencies>
         <executions>
@@ -128,8 +129,8 @@
                 <transformer implementation="org.fusesource.mvnplugins.uberize.transformer.ManifestEditor">
                   <manifestEntries>
                     <Main-Class>org.fusesource.mop.MOP</Main-Class>
-                    <Specification-Version>${pom.version}</Specification-Version>
-                    <Implementation-Version>${pom.version}</Implementation-Version>
+                    <Specification-Version>${project.version}</Specification-Version>
+                    <Implementation-Version>${project.version}</Implementation-Version>
                   </manifestEntries>
                 </transformer>
 
