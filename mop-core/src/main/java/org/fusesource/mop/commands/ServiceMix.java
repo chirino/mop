@@ -68,6 +68,12 @@ public class ServiceMix extends AbstractContainerBase {
             commands.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + (isWindows() ? "java.exe" : "java"));
             commands.add("-jar");
             commands.add(root + File.separator + "lib" + File.separator + "karaf-client.jar");
+            if (version.startsWith("4.1") || version.startsWith("4.2")) {
+                commands.add("-r");
+                commands.add("10");
+                commands.add("-d");
+                commands.add("5");
+            }
             commands.add(secondaryArgs);
         }
         return commands;
