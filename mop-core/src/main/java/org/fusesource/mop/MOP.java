@@ -501,14 +501,12 @@ public class MOP {
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
 
-        String[] env = null;
-        if (isWindows()) {
-            Map<String, String> envMap = System.getenv();
-            env = new String[envMap.size()];
-            int ind = 0;
-            for (Map.Entry<String, String> entry : envMap.entrySet()) {
-                env[ind++] = entry.getKey() + "=" + entry.getValue();
-            }
+        Map<String, String> envMap = System.getenv();
+        String[] env = new String[envMap.size()];
+        int ind = 0;
+        for (Map.Entry<String, String> entry : envMap.entrySet()) {
+            env[ind++] = entry.getKey() + "=" + entry.getValue();
+            LOG.info("setting env: " + env[ind-1]);
         }
 
         return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory, redirectInput);
