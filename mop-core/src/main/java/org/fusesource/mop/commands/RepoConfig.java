@@ -7,11 +7,14 @@
  **************************************************************************************/
 package org.fusesource.mop.commands;
 
-import java.util.LinkedList;
+import static org.fusesource.mop.support.Logger.debug;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import java.io.File;
+import java.util.LinkedList;
+import java.util.List;
+
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
+import org.fusesource.mop.Artifacts;
 import org.fusesource.mop.Command;
 import org.fusesource.mop.MOP;
 
@@ -19,14 +22,13 @@ import org.fusesource.mop.MOP;
  * @version $Revision: 1.1 $
  */
 public class RepoConfig {
-    private static final transient Log LOG = LogFactory.getLog(RepoConfig.class);
        
     /**
      * Set the default repository update policy to always.
      */
     @Command
     public void update(MOP mop, LinkedList<String> args) throws Exception {
-        LOG.info("Setting repository update policy to " + ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
+        debug("Setting repository update policy to " + ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
 
         mop.setOnline(true);
         mop.getRepository().setUpdatePolicy(ArtifactRepositoryPolicy.UPDATE_POLICY_ALWAYS);
@@ -39,7 +41,7 @@ public class RepoConfig {
      */
     @Command
     public void offline(MOP mop, LinkedList<String> args) throws Exception {
-        LOG.info("Setting mop to offline mode");
+        debug("Setting mop to offline mode");
 
         mop.setOnline(false);
         executeRemaining(mop,args);
@@ -50,7 +52,7 @@ public class RepoConfig {
      */
     @Command
     public void online(MOP mop, LinkedList<String> args) throws Exception {
-        LOG.info("Setting mop to online mode");
+        debug("Setting mop to online mode");
 
         mop.setOnline(true);
         executeRemaining(mop,args);
@@ -61,7 +63,7 @@ public class RepoConfig {
      */
     @Command
     public void purge(MOP mop, LinkedList<String> args) throws Exception {
-        LOG.info("Puriging Repository");
+        debug("Puriging Repository");
 
         mop.purgeRepository();
         executeRemaining(mop,args);
@@ -69,19 +71,29 @@ public class RepoConfig {
     
     @Command
     public void includeOptional(MOP mop, LinkedList<String> args) throws Exception {
-        LOG.info("Including optional dependencies");
+        debug("Including optional dependencies");
         mop.getRepository().setIncludeOptional(true);
         executeRemaining(mop,args);
     }
     
     @Command
     public void excludeOptional(MOP mop, LinkedList<String> args) throws Exception {
-        LOG.info("Excluding optional dependencies");
+        debug("Excluding optional dependencies");
         mop.getRepository().setIncludeOptional(false);
         executeRemaining(mop,args);
     }
 
-    
+    /**
+     * Gets the specified artifacts and stores them in the mop repository.
+     */
+    @Command
+    public void get(MOP mop,  Artifacts artifacts) throws Exception {
+        List<File> files = artifacts.getFiles();
+        for (File artifact : files) {
+            System.out.println(artifact);
+        }
+    }
+
     private final void executeRemaining(MOP mop, LinkedList<String> args) throws Exception
     {
         if(!args.isEmpty())
@@ -89,6 +101,8 @@ public class RepoConfig {
             mop.executeCommand(args);
         }
     }
+    
+    
     
     
 }

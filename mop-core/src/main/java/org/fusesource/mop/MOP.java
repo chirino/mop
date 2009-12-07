@@ -83,7 +83,7 @@ public class MOP {
     static public Options createOptions() {
         Options options = new Options();
         options.addOption("h", "help", false, "Display help information");
-        options.addOption("o", "offline", false, "Work offline");
+//        options.addOption("o", "offline", false, "Work offline");
         options.addOption("X", "debug", false, "Produce execution debug output");
 
         options.addOption(ob().id("n").name("no-repos").description("Do not use any default repos").op());
@@ -221,8 +221,8 @@ public class MOP {
             }
         }
 
-        repository.setOnline(!cli.hasOption("o"));
-        LOG.debug("online mode: " + repository.isOnline());
+//        repository.setOnline(!cli.hasOption("o"));
+//        LOG.debug("online mode: " + repository.isOnline());
 
         String localRepo = cli.getOptionValue('l');
         if (localRepo != null) {

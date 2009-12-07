@@ -7,6 +7,9 @@
  **************************************************************************************/
 package org.fusesource.mop.support;
 
+import static org.fusesource.mop.support.Logger.debug;
+import static org.fusesource.mop.support.Logger.warn;
+
 import java.io.IOException;
 import java.net.URL;
 import java.util.Enumeration;
@@ -24,9 +27,6 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 
 /**
  * Helper methods for parsing all the commands.
@@ -34,8 +34,6 @@ import org.apache.commons.logging.LogFactory;
  * @version $Revision: 1.1 $
  */
 public class CommandDefinitions {
-    private static final transient Log LOG = LogFactory.getLog(CommandDefinitions.class);
-
     public static final String COMMANDS_URI = "META-INF/services/mop/commands.xml";
     public static final String COMMAND_PROPERTIES = "META-INF/services/mop.properties";
 
@@ -49,7 +47,7 @@ public class CommandDefinitions {
         try {
             resources = classLoader.getResources(COMMANDS_URI);
         } catch (IOException e) {
-            LOG.debug("Could not load any MRS commands via " + COMMANDS_URI, e);
+            debug("Could not load any MRS commands via " + COMMANDS_URI, e);
         }
         if (resources != null) {
             while (resources.hasMoreElements()) {
@@ -74,7 +72,7 @@ public class CommandDefinitions {
                 }
             }
         } catch (Exception e) {
-            LOG.warn("Failed to parse " + e, e);
+            warn("Failed to parse " + e, e);
         }
     }
 
@@ -133,7 +131,7 @@ public class CommandDefinitions {
         try {
             resources = classLoader.getResources(COMMAND_PROPERTIES);
         } catch (IOException e) {
-            LOG.debug("Could not load any MRS commands via " + COMMANDS_URI, e);
+            debug("Could not load any MOP commands via " + COMMANDS_URI, e);
         }
         if (resources != null) {
             while (resources.hasMoreElements()) {
@@ -150,7 +148,7 @@ public class CommandDefinitions {
         try {
             properties.load(url.openStream());
         } catch (IOException e) {
-            LOG.warn("Failed to load MOP file: " + url);
+            warn("Failed to load MOP file: " + url);
         }
         for (Map.Entry<Object, Object> entry : properties.entrySet()) {
             String key = entry.getKey().toString();
@@ -167,7 +165,7 @@ public class CommandDefinitions {
             } else {
                 name = extractPostfix(key, ".description");
                 if (name == null) {
-                    LOG.warn("Missing command name for key " + key);
+                    debug("Missing command name for key " + key);
                 }
                 else {
                     CommandDefinition command = commands.get(name);
@@ -192,7 +190,7 @@ public class CommandDefinitions {
     }
 
     protected static void missingCommand(String name) {
-        LOG.warn("No command loaded for name: " + name);
+        warn("No command loaded for name: " + name);
     }
 
 }

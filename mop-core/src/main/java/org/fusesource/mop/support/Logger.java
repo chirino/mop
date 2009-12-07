@@ -26,6 +26,28 @@ public class Logger {
         }
     }
 
+    public static void info(String message) {
+        System.out.println("[INFO] " + message);
+    }
+
+    public static void info(String message, Throwable e) {
+        System.out.println("[INFO] " + message + ". " + e);
+        if( debug ) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void warn(String message) {
+        System.out.println("[WARN] " + message);
+    }
+
+    public static void warn(String message, Throwable e) {
+        System.out.println("[WARN] " + message + ". " + e);
+        if( debug ) {
+            e.printStackTrace();
+        }
+    }    
+    
     public static boolean isDebug() {
         return debug;
     }
