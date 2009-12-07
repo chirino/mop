@@ -7,6 +7,10 @@
  **************************************************************************************/
 package org.fusesource.mop;
 
+import static org.fusesource.mop.support.Logger.debug;
+import static org.fusesource.mop.support.Logger.info;
+import static org.fusesource.mop.support.Logger.warn;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -30,8 +34,6 @@ import java.util.StringTokenizer;
 import java.util.TreeSet;
 import java.util.Map.Entry;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -64,7 +66,6 @@ import org.fusesource.mop.support.Logger;
  */
 public class MOPRepository {
 
-    private static final transient Log LOG = LogFactory.getLog(MOPRepository.class);
     public static final String MOP_BASE = "mop.base";
     /**
      * Specifies a property file containing repository definitions
@@ -260,7 +261,7 @@ public class MOPRepository {
         }
 
         for (File dependency : dependencies) {
-            LOG.debug("copying: " + dependency + " to " + targetDir);
+            debug("copying: " + dependency + " to " + targetDir);
             FileInputStream is = new FileInputStream(dependency);
             try {
                 FileOutputStream os = new FileOutputStream(new File(targetDir, dependency.getName()));
@@ -364,7 +365,7 @@ public class MOPRepository {
     }
 
     public Set<Artifact> resolveArtifacts(ArtifactFilter filter, final ArtifactId id) throws Exception, InvalidRepositoryException {
-        LOG.info("Resolving artifact " + id);
+        debug("Resolving artifact " + id);
 
         RepositorySystem repositorySystem = (RepositorySystem) getContainer().lookup(RepositorySystem.class);
 
@@ -391,7 +392,7 @@ public class MOPRepository {
                             throw new Exception("Please qualify a group id: Multiple local artifacts match: " + id);
                         }
                         id.setGroupId(rc.keySet().iterator().next());
-                        LOG.debug("Resolving artifact " + id);
+                        debug("Resolving artifact " + id);
                     }
 
                 }
@@ -453,11 +454,9 @@ public class MOPRepository {
             });
         }
 
-        if (Logger.isDebug()) {
-            LOG.info("  Resolved: " + id);
-            for (Artifact a : rc) {
-                LOG.debug("    depends on: " + a.getId() + ", scope: " + a.getScope() + ", optional: " + a.isOptional() + ", file: " + a.getFile());
-            }
+        debug("  Resolved: " + id);
+        for (Artifact a : rc) {
+            debug("    depends on: " + a.getId() + ", scope: " + a.getScope() + ", optional: " + a.isOptional() + ", file: " + a.getFile());
         }
 
         return rc;
@@ -581,7 +580,7 @@ public class MOPRepository {
                     repoUrl = url.getProtocol() + "://" + repoUrl.substring(repoUrl.indexOf("@") + 1);
                 }
             } catch (MalformedURLException e) {
-                LOG.warn("Invalid Repository url for: " + entry.getKey() + ": " + entry.getValue());
+                warn("Invalid Repository url for: " + entry.getKey() + ": " + entry.getValue());
             }
 
             ArtifactRepository ar = repositorySystem.createArtifactRepository(entry.getKey(), repoUrl, layout, repositoryPolicy, repositoryPolicy);
@@ -653,7 +652,7 @@ public class MOPRepository {
                 p.load(new FileInputStream(f));
             }
         } catch (Exception e) {
-            LOG.warn("Error reading repo config from " + f, e);
+            warn("Error reading repo config from " + f, e);
         }
 
         //Check for user specified config:
@@ -665,7 +664,7 @@ public class MOPRepository {
                     p.load(new FileInputStream(f));
                 }
             } catch (Exception e) {
-                LOG.warn("Error reading repo config from " + f, e);
+                warn("Error reading repo config from " + f, e);
             }
         }
 
@@ -711,7 +710,7 @@ public class MOPRepository {
                 props.load(new FileInputStream(f));
             }
         } catch (Exception e) {
-            LOG.warn("Error reading repo config from " + f, e);
+            warn("Error reading repo config from " + f, e);
         }
         for (Entry<Object, Object> entry : props.entrySet()) {
             rc.put(entry.getKey().toString(), entry.getValue().toString());
@@ -729,16 +728,8 @@ public class MOPRepository {
             try {
                 //Map commons logging to plexus log level:
                 int plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_DISABLED;
-                if (LOG.isDebugEnabled() || LOG.isTraceEnabled()) {
+                if (Logger.isDebug()) {
                     plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_DEBUG;
-                } else if (LOG.isInfoEnabled()) {
-                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_INFO;
-                } else if (LOG.isWarnEnabled()) {
-                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_WARN;
-                } else if (LOG.isErrorEnabled()) {
-                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_ERROR;
-                } else if (LOG.isFatalEnabled()) {
-                    plexusLogLevel = org.codehaus.plexus.logging.Logger.LEVEL_FATAL;
                 }
 
                 ClassWorld classWorld = new ClassWorld("plexus.core", Thread.currentThread().getContextClassLoader());
@@ -753,7 +744,7 @@ public class MOPRepository {
                     transform.setLocalRepoId(RepositorySystem.DEFAULT_LOCAL_REPO_ID);
                     transformer.getArtifactTransformations().add(transform);
                 } catch (ComponentLookupException e) {
-                    LOG.warn("Error setting local snaphost resolution transformer, your .m2 snapshot updates may not be resolved correctly!", e);
+                    warn("Error setting local snaphost resolution transformer, your .m2 snapshot updates may not be resolved correctly!", e);
                 }
 
             } catch (PlexusContainerException e) {
@@ -778,7 +769,7 @@ public class MOPRepository {
                     warnDir = localRepo.getCanonicalPath();
                 } catch (Exception e) {
                 }
-                LOG.warn("No " + MOP_BASE + " system property defined so setting local repo to: " + warnDir);
+                warn("No " + MOP_BASE + " system property defined so setting local repo to: " + warnDir);
             }
         }
         return localRepo;
