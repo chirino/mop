@@ -40,6 +40,7 @@ public class Karaf extends AbstractContainerBase {
     }
     
     protected List<String> processArgs(List<String> command, List<String> params) {
+        extractEnvironment(params);
         extractSecondaryCommands(params);
         return command;
     }
