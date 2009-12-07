@@ -53,7 +53,7 @@ public class CommandLineTest extends TestCase {
         int rc = new MOP().execute(new String[]{"-X", "-l", "target/test-repo", "classpath", "commons-logging:commons-logging:1.1.1"});
         assertEquals(0, rc);
         // Offline version
-        rc = new MOP().execute(new String[]{"-X", "-offline", "-l", "target/test-repo", "classpath", "commons-logging"});
+        rc = new MOP().execute(new String[]{"-X", "offline", "-l", "target/test-repo", "classpath", "commons-logging"});
         assertEquals(0, rc);
     }
     
