@@ -12,9 +12,7 @@
 
   <properties>
     <junit-version>3.8.1</junit-version>
-    <!--<maven-version>3.0-alpha-2</maven-version>-->
-    <maven-version>3.0-SNAPSHOT</maven-version>
-    <!--<maven-version>3.0-TYCHO-797695</maven-version>-->
+    <maven-version>3.0-alpha-5</maven-version>
   </properties>
 
   <organization>
@@ -55,6 +53,8 @@
     <developerConnection>scm:git:ssh://git@forge.fusesource.com/mop.git</developerConnection>
     <url>http://fusesource.com/forge/gitweb?p=mop.git;a=tree</url>
   </scm>
+  <dependencies>
+  </dependencies>
 
   <distributionManagement>
     <repository>
