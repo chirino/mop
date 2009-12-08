@@ -76,14 +76,14 @@ public class MOPRepository {
     public static final String MOP_SCOPE_PROP = "mop.scope";
     public static final String MOP_ONLINE_PROP = "mop.online";
     public static final String MOP_TRANSITIVE_PROP = "mop.include.transitive";
-    public static final String MOP_INCLUDE_OPTIONAL_PROP = "mop.include.includeOptional";
+    public static final String MOP_INCLUDE_OPTIONAL_PROP = "mop.include.optional";
     public static final String MOP_REPO_LOCAL_CHECK_PROP = "mop.repo.local.check";
 
     private static final String[] MOP_REPO_PROPS = { MOP_BASE, MOP_REPO_CONFIG_PROP, MOP_SCOPE_PROP, MOP_ONLINE_PROP, MOP_TRANSITIVE_PROP, MOP_INCLUDE_OPTIONAL_PROP, MOP_REPO_LOCAL_CHECK_PROP };
 
     private static final Object lock = new Object();
 
-    private String scope = System.getProperty(MOP_ONLINE_PROP, "runtime");
+    private String scope = System.getProperty(MOP_SCOPE_PROP, "runtime");
     private boolean online = System.getProperty(MOP_ONLINE_PROP, "true").equals("true");
     private boolean transitive = System.getProperty(MOP_TRANSITIVE_PROP, "true").equals("true");
     private boolean includeOptional = System.getProperty(MOP_INCLUDE_OPTIONAL_PROP, "false").equals("true");
