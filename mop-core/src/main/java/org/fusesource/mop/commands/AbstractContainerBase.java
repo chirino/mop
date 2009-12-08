@@ -8,6 +8,7 @@
 package org.fusesource.mop.commands;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -25,6 +26,7 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
     
     protected String version = "RELEASE";
     protected MOP mop;
+    protected String[] environment;
     protected String secondaryArgs = "";
     
     public void installAndLaunch(List<String> params) throws Exception {
@@ -39,7 +41,7 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
         File root = getRoot();
         
         LOG.info(String.format("Starting " + getContainerName() + " %s", version));
-        mop.exec(getCommand(root, params));
+        mop.exec(getCommand(root, params), environment);
         final ShutdownHook hook = new ShutdownHook();
         Runtime.getRuntime().addShutdownHook(hook);
 
@@ -88,6 +90,21 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
     protected abstract List<String> getSecondaryCommand(File root, List<String> params);
     
     protected abstract String getInput();
+
+    protected void extractEnvironment(List<String> params) {
+        for (int i = 0 ; i < params.size() ; i++) {
+            String param = params.get(i);
+            if ("-e".equals(param) || "--environment".equals(param)) {
+                params.remove(i);
+                List<String> envs = new ArrayList<String>();
+                while  (i < params.size() && !params.get(i).startsWith("--")) {
+                    envs.add(params.remove(i));
+                }
+                environment = envs.toArray(new String[envs.size()]);
+                break;
+            }
+        }
+    }
 
     protected void extractSecondaryCommands(List<String> params) {
         for (int i = 0 ; i < params.size() ; i++) {

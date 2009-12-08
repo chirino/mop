@@ -485,28 +485,41 @@ public class MOP {
     }
 
     public void exec(List<String> commandLine) throws Exception {
+        exec(commandLine, null);
+    }
+
+    public void exec(List<String> commandLine, String[] envOverride) throws Exception {
         LOG.info("execing: " + commandLine);
-        processRunner = doExec(commandLine, true);
+        processRunner = doExec(commandLine, true, envOverride);
     }
 
     public void execAndWait(List<String> commandLine) throws Exception {
-        ProcessRunner pRunner = doExec(commandLine, false);
+        ProcessRunner pRunner = doExec(commandLine, false, null);
         if (pRunner != null) {
             pRunner.join();
         }
     }
 
-    private ProcessRunner doExec(List<String> commandLine, boolean redirectInput) throws Exception {
+    private ProcessRunner doExec(List<String> commandLine, boolean redirectInput, String[] envOverride) throws Exception {
         LOG.info("MOP Executing " + commandLine);
 
         String[] cmd = commandLine.toArray(new String[commandLine.size()]);
 
         Map<String, String> envMap = System.getenv();
-        String[] env = new String[envMap.size()];
+        String[] env = new String[envOverride != null ? envOverride.length + envMap.size() : envMap.size()];
         int ind = 0;
+        if (envOverride != null) {
+            for (; ind < envOverride.length ; ind++) {
+                env[ind] = envOverride[ind];
+                if (envMap.containsKey(envOverride[ind])) {
+                    envMap.remove(envOverride[ind]);
+                }
+                LOG.info("overriding env: " + env[ind]);
+            }
+        }
         for (Map.Entry<String, String> entry : envMap.entrySet()) {
             env[ind++] = entry.getKey() + "=" + entry.getValue();
-            LOG.info("setting env: " + env[ind-1]);
+            LOG.debug("setting env: " + env[ind-1]);
         }
 
         return ProcessRunner.newInstance(ProcessRunner.newId("process"), cmd, env, workingDirectory, redirectInput);

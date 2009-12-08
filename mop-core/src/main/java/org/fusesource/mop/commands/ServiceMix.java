@@ -44,6 +44,7 @@ public class ServiceMix extends AbstractContainerBase {
         if (!version.startsWith("3")) {
             command.add("server");
         }
+        extractEnvironment(params);
         extractSecondaryCommands(params);
         return command;
     }
