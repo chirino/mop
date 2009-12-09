@@ -141,6 +141,6 @@ Download it Today!
   %h1 Building from Source
 .right
   :markdown      
-    If you prefer you can try building from [source][1] and [building][2] it
+    If you prefer you can try downloading the [source][1] and [building][2] it
     [1]: {relocatable:/source.html}
     [2]: {relocatable:/building.html}
