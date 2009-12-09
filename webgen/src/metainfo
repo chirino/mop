@@ -39,6 +39,8 @@
   project_forums_url: 'http://fusesource.com/forums'
   project_wiki_url: 'http://fusesource.com/wiki/display/MOP'
   project_logo: "/images/project-logo.gif"
+  project_snapshot_version: "1.0-SNAPSHOT"
+  project_version: "1.0-m1"
 
   # -------------------------------------------------------------------
   # TODO it would be nice to define these in terms of the project_id variable!
