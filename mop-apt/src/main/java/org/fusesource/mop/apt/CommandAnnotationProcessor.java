@@ -24,11 +24,15 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.Map.Entry;
 
 import com.sun.mirror.apt.AnnotationProcessorEnvironment;
 import com.sun.mirror.apt.Filer;
 import com.sun.mirror.declaration.AnnotationMirror;
+import com.sun.mirror.declaration.AnnotationTypeElementDeclaration;
+import com.sun.mirror.declaration.AnnotationValue;
 import com.sun.mirror.declaration.MethodDeclaration;
 import com.sun.mirror.declaration.ParameterDeclaration;
 import com.sun.mirror.declaration.TypeDeclaration;
@@ -53,12 +57,12 @@ public class CommandAnnotationProcessor extends SimpleDeclarationVisitor {
         for (AnnotationMirror annotation : annotations) {
             String annotationName = annotation.getAnnotationType().toString();
             if (MopAnnotationProcessorFactory.COMMAND_ANNOTATION_CLASSNAME.equals(annotationName)) {
-                processCommandMethod(methodDeclaration);
+                processCommandMethod(methodDeclaration, annotation);
             }
         }
     }
 
-    private void processCommandMethod(MethodDeclaration methodDeclaration) {
+    private void processCommandMethod(MethodDeclaration methodDeclaration, AnnotationMirror annotation) {
         TypeDeclaration type = methodDeclaration.getDeclaringType();
 
 
@@ -86,6 +90,15 @@ public class CommandAnnotationProcessor extends SimpleDeclarationVisitor {
 
         String name = methodDeclaration.getSimpleName();
 
+        for (Entry<AnnotationTypeElementDeclaration, AnnotationValue> entry : annotation.getElementValues().entrySet()) {
+            if( entry.getKey().getSimpleName().equals("name") ) {
+                String value = (String) entry.getValue().getValue();
+                if( value!=null && value.length()!=0 ) {
+                    name = value;
+                }
+            }
+        }
+
         List<String> list = entries.get(name);
         if (list == null) {
             list = new ArrayList<String>();
@@ -94,7 +107,7 @@ public class CommandAnnotationProcessor extends SimpleDeclarationVisitor {
         list.add("description = " + description);
         list.add("usage = " + usage);
 
-        System.out.println("@Command method: " + methodDeclaration + " on " + type);
+        System.out.println("@Command name:"+name+", method: " + methodDeclaration + " on " + type);
         System.out.println("entries: " + list);
 
     }

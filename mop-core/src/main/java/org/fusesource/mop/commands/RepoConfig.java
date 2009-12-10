@@ -78,14 +78,14 @@ public class RepoConfig {
         executeRemaining(mop,args);
     }
     
-    @Command
+    @Command(name="include-optional")
     public void includeOptional(MOP mop, LinkedList<String> args) throws Exception {
         debug("Including optional dependencies");
         mop.getRepository().setIncludeOptional(true);
         executeRemaining(mop,args);
     }
     
-    @Command
+    @Command(name="exclude-optional")
     public void excludeOptional(MOP mop, LinkedList<String> args) throws Exception {
         debug("Excluding optional dependencies");
         mop.getRepository().setIncludeOptional(false);

@@ -32,4 +32,5 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Retention(RUNTIME)
 @Documented
 public @interface Command {
+    public String name() default "";
 }

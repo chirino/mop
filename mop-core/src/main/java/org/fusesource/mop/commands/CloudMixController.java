@@ -33,7 +33,7 @@ public class CloudMixController {
     /**
      * Starts a CloudMix agent
      */
-    @Command
+    @Command(name="cloudmix-controller")
     public void cloudmixController(MOP mop, @Optional String port) throws Exception {
 
         if (port != null) {

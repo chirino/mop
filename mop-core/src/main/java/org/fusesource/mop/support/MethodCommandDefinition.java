@@ -26,6 +26,7 @@ import java.util.LinkedList;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.fusesource.mop.Artifacts;
+import org.fusesource.mop.Command;
 import org.fusesource.mop.Description;
 import org.fusesource.mop.Lookup;
 import org.fusesource.mop.MOP;
@@ -41,7 +42,7 @@ public class MethodCommandDefinition extends CommandDefinition {
     private final Method method;
 
     public MethodCommandDefinition(Object bean, Method method) {
-        super(method.getName(), createUsage(method), "");
+        super(name(method), createUsage(method), "");
         this.bean = bean;
         this.method = method;
 
@@ -49,6 +50,17 @@ public class MethodCommandDefinition extends CommandDefinition {
         if (description != null) {
             setDescription(description.value());
         }
+    }
+
+    private static String name(Method method) {
+        Command commandAnnotation = method.getAnnotation(Command.class);
+        if (commandAnnotation != null ) {
+            String name = commandAnnotation.name();
+            if( name!=null && name.length()!=0 ) {
+                return name;
+            }
+        }
+        return method.getName();
     }
 
     protected static String createUsage(Method method) {

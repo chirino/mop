@@ -33,7 +33,7 @@ public class CloudMixAgent {
     /**
      * Starts a CloudMix agent
      */
-    @Command
+    @Command(name="cloudmix-agent")
     public void cloudmixAgent(MOP mop, 
                               @Optional String url, 
                               @Optional String profile, 
