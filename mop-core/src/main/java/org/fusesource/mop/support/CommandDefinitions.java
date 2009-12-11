@@ -16,10 +16,8 @@
  */
 package org.fusesource.mop.support;
 
-import static org.fusesource.mop.support.Logger.debug;
-import static org.fusesource.mop.support.Logger.warn;
-
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Enumeration;
 import java.util.Map;
@@ -29,12 +27,15 @@ import java.util.TreeMap;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.fusesource.mop.Command;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
+
+import static org.fusesource.mop.support.Logger.*;
 
 
 /**
@@ -47,7 +48,7 @@ public class CommandDefinitions {
     public static final String COMMAND_PROPERTIES = "META-INF/services/mop.properties";
 
     /**
-     * Loads all of the MRS commmands that can be found on the classpath in the given class loader
+     * Loads all of the MOP commmands that can be found on the classpath in the given class loader
      * using the {@link #COMMANDS_URI} URI
      */
     public static Map<String, CommandDefinition> loadCommands(ClassLoader classLoader) {
@@ -61,18 +62,33 @@ public class CommandDefinitions {
         if (resources != null) {
             while (resources.hasMoreElements()) {
                 URL url = resources.nextElement();
-                loadCommands(answer, url);
+                loadCommands(classLoader, answer, url);
             }
         }
         return answer;
     }
 
-    public static void loadCommands(Map<String, CommandDefinition> commands, URL url) {
+    public static void loadCommands(ClassLoader classLoader, Map<String, CommandDefinition> commands, URL url) {
         try {
             DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             Document document = documentBuilder.parse(url.openStream(), url.toString());
             Element element = document.getDocumentElement();
-            NodeList list = element.getElementsByTagName("command");
+
+            NodeList list = element.getElementsByTagName("command-class");
+            for (int i = 0, size = list.getLength(); i < size; i++) {
+                Element commandClassElement = (Element) list.item(i);
+                String name = commandClassElement.getAttribute("name");
+                Class<?> clazz;
+                try {
+                    clazz = classLoader.loadClass(name);
+                } catch (Throwable e) {
+                    debug("Could not load the MOP command class: " + name, e);
+                    continue;
+                }
+                registerCommandMethods(commands, clazz);
+            }
+            
+            list = element.getElementsByTagName("command");
             for (int i = 0, size = list.getLength(); i < size; i++) {
                 Element commandElement = (Element) list.item(i);
                 CommandDefinition command = loadCommand(commandElement);
@@ -130,6 +146,20 @@ public class CommandDefinitions {
         }
     }
 
+    public static void registerCommandMethods(Map<String, CommandDefinition> commands, Class<?> type) {
+        Method[] methods = type.getMethods();
+        for (Method method : methods) {
+            Command commandAnnotation = method.getAnnotation(Command.class);
+            if (commandAnnotation != null) {
+                try {
+                    MethodCommandDefinition def = new MethodCommandDefinition(type.newInstance(), method);
+                    commands.put(def.getName(), def);
+                } catch (Throwable e) {
+                    debug("Could not create instance of command type: " + type, e);
+                }
+            }
+        }
+    }
 
     /**
      * Looks on the classpath for all of the <code>META-INF/services/mop.properties</code> resource bundles and

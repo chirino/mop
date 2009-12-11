@@ -17,6 +17,18 @@
 
 -->
 <commands>
+  
+  <command-class name="org.fusesource.mop.commands.Fork"/>
+  <command-class name="org.fusesource.mop.commands.Install"/>
+  <command-class name="org.fusesource.mop.commands.RepoConfig"/>
+  <command-class name="org.fusesource.mop.commands.Shell"/>
+
+  <command-class name="org.fusesource.mop.commands.CloudMixAgent"/>
+  <command-class name="org.fusesource.mop.commands.CloudMixController"/>
+  
+  <command-class name="org.fusesource.mop.commands.Karaf"/>
+  <command-class name="org.fusesource.mop.commands.ServiceMix"/>
+  
   <command name="spring" alias="run ${artifacts} +org.fusesource.mop:mop-spring:LATEST org.fusesource.mop.spring.Main">
     <description>
       Runs the given artifact(s) by starting the XML application context specified as an argument or defaults to

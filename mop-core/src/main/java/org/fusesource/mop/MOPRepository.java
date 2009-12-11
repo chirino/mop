@@ -16,10 +16,6 @@
  */
 package org.fusesource.mop;
 
-import static org.fusesource.mop.support.Logger.debug;
-import static org.fusesource.mop.support.Logger.info;
-import static org.fusesource.mop.support.Logger.warn;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -69,6 +65,8 @@ import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.Database;
 import org.fusesource.mop.support.FileSupport;
 import org.fusesource.mop.support.Logger;
+
+import static org.fusesource.mop.support.Logger.*;
 
 /**
  * @author chirino

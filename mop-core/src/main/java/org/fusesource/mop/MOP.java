@@ -16,15 +16,15 @@
  */
 package org.fusesource.mop;
 
-import static org.fusesource.mop.support.OptionBuilder.ob;
-
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,19 +50,13 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepositoryPolicy;
 import org.codehaus.plexus.MutablePlexusContainer;
 import org.codehaus.plexus.PlexusContainer;
-import org.fusesource.mop.commands.CloudMixAgent;
-import org.fusesource.mop.commands.CloudMixController;
-import org.fusesource.mop.commands.Fork;
-import org.fusesource.mop.commands.Install;
-import org.fusesource.mop.commands.Karaf;
-import org.fusesource.mop.commands.RepoConfig;
-import org.fusesource.mop.commands.ServiceMix;
-import org.fusesource.mop.commands.Shell;
 import org.fusesource.mop.support.ArtifactId;
 import org.fusesource.mop.support.CommandDefinition;
 import org.fusesource.mop.support.CommandDefinitions;
 import org.fusesource.mop.support.Logger;
-import org.fusesource.mop.support.MethodCommandDefinition;
+
+import static org.fusesource.mop.support.Logger.*;
+import static org.fusesource.mop.support.OptionBuilder.*;
 
 /**
  * Runs a Java class from an artifact loaded from the local maven repository
@@ -203,11 +197,6 @@ public class MOP {
             return 1;
         }
 
-        if (cli.hasOption("h")) {
-            displayHelp();
-            return 0;
-        }
-
         // lets process the options
         Logger.debug = cli.hasOption("X");
 
@@ -236,6 +225,11 @@ public class MOP {
         String localRepo = cli.getOptionValue('l');
         if (localRepo != null) {
             repository.setLocalRepo(new File(localRepo));
+        }
+
+        if (cli.hasOption("h")) {
+            displayHelp();
+            return 0;
         }
 
         // now the remaining command line args
@@ -628,11 +622,6 @@ public class MOP {
         exec(commandLine);
     }
 
-    private boolean isWindows() {
-        String os = System.getProperty("os.name");
-        return os != null && os.toLowerCase().contains("windows") ? true : false;
-    }
-
     protected void setClassNameFromExecutableJar(List<File> dependencies) throws Exception, UsageException {
         // now lets figure out the className from the manifest
         // lets assume that the first file in the dependency list is usually the one we want to execute
@@ -710,12 +699,63 @@ public class MOP {
     }
 
     void checkCommandsLoaded() {
+        
         if (commands == null) {
-            commands = CommandDefinitions.loadCommands(getClass().getClassLoader());
 
+            File mopHome = repository.getLocalRepo().getParentFile();
+            File pluginConf = new File(mopHome, "command-ext.conf");
+            ClassLoader classLoader = getClass().getClassLoader();
+            
+            if( pluginConf.exists() ) {
+                
+                ArrayList<File> extensions = new ArrayList<File>();
+                BufferedReader reader=null;
+                boolean wasonline = repository.isOnline();
+                repository.setOnline(false);
+                try {
+                    reader = new BufferedReader(new FileReader(pluginConf));
+                    String line;
+                    while((line=reader.readLine()) != null ) {
+                        String[] artifacts = line.split("\\s+");
+                        ArrayList<ArtifactId> artifactList;
+                        try {
+                            artifactList = parseArtifactList(new LinkedList<String>(Arrays.asList(artifacts)));
+                        } catch (UsageException e) {
+                            debug("Invalid command-ext.conf entry: "+line, e);
+                            continue;
+                        }
+                        
+                        try {
+                            extensions.addAll(repository.resolveFiles(artifactList));
+                        } catch (Exception e) {
+                            debug("Could not locate artifacts: "+line, e);
+                            continue;
+                        }
+                        
+
+                    }
+                } catch (IOException e) {
+                    debug("Could not load command-ext.conf", e);
+                } finally {
+                    repository.setOnline(wasonline);
+                    try {
+                        reader.close();
+                    } catch (Throwable e) {
+                    }
+                }
+                
+                if( !extensions.isEmpty() ) {
+                    try {
+                        classLoader = MOPRepository.createFileClassLoader(classLoader, extensions);
+                    } catch (MalformedURLException e) {
+                        debug("Could not create extensions classloader.", e);
+                    }
+                }
+            }
+
+            commands = CommandDefinitions.loadCommands(classLoader);
             registerDefaultCommands();
-
-            CommandDefinitions.addCommandDescriptions(commands, getClass().getClassLoader());
+            CommandDefinitions.addCommandDescriptions(commands, classLoader);
         }
     }
 
@@ -733,28 +773,6 @@ public class MOP {
         registerDefaultCommand("war", "runs the given (typically war) archetypes in the jetty servlet engine via jetty-runner");
 
         registerDefaultCommand("help", "<command(s)>", "displays help summarising all of the commands or shows custom help for each command listed");
-
-        // TODO it would be better to auto-discover these from the package!!!
-        // This might be a starting point http://forums.sun.com/thread.jspa?threadID=341935&start=15&tstart=0
-        registerCommandMethods(new CloudMixAgent());
-        registerCommandMethods(new CloudMixController());
-        registerCommandMethods(new Fork());
-        registerCommandMethods(new Install());
-        registerCommandMethods(new ServiceMix());
-        registerCommandMethods(new Karaf());
-        registerCommandMethods(new Shell());
-        registerCommandMethods(new RepoConfig());
-    }
-
-    private void registerCommandMethods(Object commandObject) {
-        Class<? extends Object> type = commandObject.getClass();
-        Method[] methods = type.getMethods();
-        for (Method method : methods) {
-            Command commandAnnotation = method.getAnnotation(Command.class);
-            if (commandAnnotation != null) {
-                registerCommand(new MethodCommandDefinition(commandObject, method));
-            }
-        }
     }
 
     protected void registerDefaultCommand(String name, String description) {
