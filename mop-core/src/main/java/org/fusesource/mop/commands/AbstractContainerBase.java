@@ -18,8 +18,10 @@ package org.fusesource.mop.commands;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -100,14 +102,29 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
     
     protected abstract String getInput();
 
+    protected String[] getEnvironment() {
+        return environment;
+    }
+
     protected void extractEnvironment(List<String> params) {
+        Map<String, String> map = new HashMap<String, String>();
         for (int i = 0 ; i < params.size() ; i++) {
             String param = params.get(i);
             if ("-e".equals(param) || "--environment".equals(param)) {
                 params.remove(i);
                 List<String> envs = new ArrayList<String>();
                 while  (i < params.size() && !params.get(i).startsWith("--")) {
-                    envs.add(params.remove(i));
+                    String env = params.remove(i);
+                    String name = env.substring(0, env.indexOf("="));
+                    String value = env.substring(env.indexOf("=") + 1);
+                    if (map.containsKey(name)) {
+                        envs.remove(name + "=" + map.get(name));
+                        map.put(name, map.get(name) + " " + value);
+                        env = name + "=" + map.get(name);
+                    } else {
+                        map.put(name, value);
+                    }
+                    envs.add(env);
                 }
                 environment = envs.toArray(new String[envs.size()]);
                 break;

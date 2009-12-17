@@ -75,11 +75,15 @@ public class ServiceMixTest extends TestCase {
         assertEquals("ServiceMix 4 should be started in server mode", "server", command.get(1));
     }
     
-    public void xtestGetCommandWithExtras() throws Exception {
+    public void testGetCommandWithExtras() throws Exception {
         ServiceMix smx = new ServiceMix();
         File root = new File("root");
         List<String> params = new ArrayList<String>();
         params.add("foobar:1.2.3.4");
+        params.add("--environment");
+        params.add("VAR1=first_half");
+        params.add("VAR2=whole");
+        params.add("VAR1=second_half");
         params.add("--commands");
         params.add("some command ; some other command");
         
@@ -91,6 +95,14 @@ public class ServiceMixTest extends TestCase {
         assertEquals("params should be stripped of secondary commands", "foobar:1.2.3.4", params.get(0));
         
         assertNull(smx.getInput());
+
+        String[] env = smx.getEnvironment();
+        assertNotNull("expected environment", env);
+        assertEquals("unexpected environment size", 2, env.length);
+        String[] expected = {"VAR1=first_half second_half", "VAR2=whole"};
+        assertTrue("unexpected environment settings", 
+                   (expected[0].equals(env[0]) && expected[1].equals(env[1])) ||
+                   (expected[0].equals(env[1]) && expected[1].equals(env[0])));
         
         List<String> secondary = smx.getSecondaryCommand(root, params);
         assertEquals("unexpected secondary command size", 4, secondary.size());

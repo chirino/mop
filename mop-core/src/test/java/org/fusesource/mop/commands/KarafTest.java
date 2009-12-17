@@ -58,6 +58,10 @@ public class KarafTest extends TestCase {
         File root = new File("root");
         List<String> params = new ArrayList<String>();
         params.add("foobar:1.2.3.4");
+        params.add("--environment");
+        params.add("VAR1=first_half");
+        params.add("VAR2=whole");
+        params.add("VAR1=second_half");
         params.add("--commands");
         params.add("some command ; some other command");
         
@@ -67,6 +71,14 @@ public class KarafTest extends TestCase {
         assertEquals("Karaf should be started with no extra args", 1, command.size());
         assertEquals("params should be stripped of secondary commands", 1, params.size());
         assertEquals("params should be stripped of secondary commands", "foobar:1.2.3.4", params.get(0));
+
+        String[] env = karaf.getEnvironment();
+        assertNotNull("expected environment", env);
+        assertEquals("unexpected environment size", 2, env.length);
+        String[] expected = {"VAR1=first_half second_half", "VAR2=whole"};
+        assertTrue("unexpected environment settings", 
+                   (expected[0].equals(env[0]) && expected[1].equals(env[1])) ||
+                   (expected[0].equals(env[1]) && expected[1].equals(env[0])));
         
         String input = karaf.getInput();
         assertEquals("some command ; some other command", input.trim());
