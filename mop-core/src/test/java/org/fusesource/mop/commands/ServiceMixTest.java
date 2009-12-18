@@ -17,6 +17,7 @@
 package org.fusesource.mop.commands;
 
 import java.io.File;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,9 +82,9 @@ public class ServiceMixTest extends TestCase {
         List<String> params = new ArrayList<String>();
         params.add("foobar:1.2.3.4");
         params.add("--environment");
-        params.add("VAR1=first_half");
-        params.add("VAR2=whole");
-        params.add("VAR1=second_half");
+        params.add("VAR1=hostname");
+        params.add("VAR2=foobar");
+        params.add("VAR1=${this.host}");
         params.add("--commands");
         params.add("some command ; some other command");
         
@@ -99,8 +100,9 @@ public class ServiceMixTest extends TestCase {
         String[] env = smx.getEnvironment();
         assertNotNull("expected environment", env);
         assertEquals("unexpected environment size", 2, env.length);
-        String[] expected = {"VAR1=first_half second_half", "VAR2=whole"};
-        assertTrue("unexpected environment settings", 
+        String[] expected = {"VAR1=hostname " + smx.getHostName(),
+                             "VAR2=foobar" };
+        assertTrue("unexpected environment settings: " + env[0] + ", " + env[1], 
                    (expected[0].equals(env[0]) && expected[1].equals(env[1])) ||
                    (expected[0].equals(env[1]) && expected[1].equals(env[0])));
         

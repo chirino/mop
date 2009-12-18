@@ -17,7 +17,10 @@
 package org.fusesource.mop.commands;
 
 import java.io.File;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -34,7 +37,8 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
     
     private static final transient Log LOG = LogFactory.getLog(AbstractContainerBase.class);
     private static final long START_DELAY = 25 * 1000; // 25 secs
-    
+    private static final String THIS_HOST = "${this.host}";
+
     protected String version = "RELEASE";
     protected MOP mop;
     protected String[] environment;
@@ -116,13 +120,14 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
                 while  (i < params.size() && !params.get(i).startsWith("--")) {
                     String env = params.remove(i);
                     String name = env.substring(0, env.indexOf("="));
-                    String value = env.substring(env.indexOf("=") + 1);
+                    String value = substVars(env.substring(env.indexOf("=") + 1));
                     if (map.containsKey(name)) {
                         envs.remove(name + "=" + map.get(name));
                         map.put(name, map.get(name) + " " + value);
                         env = name + "=" + map.get(name);
                     } else {
                         map.put(name, value);
+                        env = name + "=" + value;
                     }
                     envs.add(env);
                 }
@@ -130,6 +135,19 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
                 break;
             }
         }
+    }
+
+    protected String substVars(String value) {
+        String ret = value;
+        if (value.indexOf(THIS_HOST) > -1) {
+            try {
+                String thisHost = getHostName();
+                ret = ret.replace(THIS_HOST, thisHost);
+            } catch (Exception e) {
+                LOG.warn("IP address lookup failed: " + e);
+            } 
+        }
+        return ret;
     }
 
     protected void extractSecondaryCommands(List<String> params) {
@@ -203,5 +221,25 @@ public abstract class AbstractContainerBase implements ConfiguresMop {
                 e.printStackTrace();
             }
         }
+    }
+
+    protected String getHostName() throws Exception {
+        String hostname = "localhost";
+        Enumeration<NetworkInterface> interfaces = 
+            NetworkInterface.getNetworkInterfaces();
+        while (interfaces.hasMoreElements()) {
+            NetworkInterface inet = interfaces.nextElement();
+            Enumeration<InetAddress> addresses = inet.getInetAddresses();
+            if (addresses.hasMoreElements()) {
+                InetAddress address = addresses.nextElement();
+                if (address.isLoopbackAddress()) {
+                    InetAddress localAddress = 
+                        InetAddress.getByName(address.getHostName());
+                    hostname = localAddress.getHostName();
+                    break;
+                }
+            }
+        }
+        return hostname;
     }
 }
